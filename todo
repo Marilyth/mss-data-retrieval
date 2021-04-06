@@ -1,0 +1,43 @@
+ECMWF Account
+Accept terms and conditions
+
+Download grib2ncdf?????? (https://jugit.fz-juelich.de/iek-7/juregrid3d/-/tree/master/scripts)
+install libcgal-dev, metpy
+mamba install --file requirements.txt
+python setup.py install
+
+register at cds
+create file in home
+ecmwf_cube.py?
+
+DIVERGENCE = d
+level = lev_2
+MSL = Insp, z?
+TEMP = t
+LCC, MCC, HCC = CC
+Q = q
+V = v
+V10 = v[0]
+O3 = o3
+W = w
+U = u
+
+def get_gph(p, t, z0, ps=None, q=None):
+    """
+    Construct geopotential altitude from pressure and temperature field and
+    altitude of first level.
+    """
+    R = 287.8950831024931  # value of clams program
+    g = 9.80665
+    zs = np.empty_like(t)
+    if q is not None:
+        t = t * (1. + 0.607717 * q)
+    # distance between ground and first full level.
+    Rg = 1e-3 * (R / g)
+    zs[0, ...] = z0
+    if ps is not None:
+        zs[0, ...] -= Rg * np.log(p[0] / ps) * t[0]
+    for i in tqdm.tqdm(range(1, len(t)), ascii=True, desc="Computing GPH"):
+        # Clams uses an isothermal atmosphere of average temperature between levels
+        zs[i, ...] = zs[i - 1] - Rg * np.log(p[i] / p[i - 1]) * (t[i - 1] + t[i]) * 0.5
+    return zs

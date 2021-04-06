@@ -1,0 +1,15 @@
+basemap
+cmocean
+cython
+matplotlib
+netCDF4
+numpy
+pycodestyle
+pygrib
+scipy
+tqdm
+cdsapi
+ecmwf-api-client
+pint
+metpy
+xarray
