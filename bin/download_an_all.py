@@ -16,14 +16,14 @@ def ml():
         'time': sys.argv[2],
         'date': sys.argv[1],
         'expver': '1',
-        'levelist': 'all',
+        'levelist': sorted(range(1, 138)),
         'levtype': 'ml',
-        'param': "all",
+        'param': [129.128, 130.128, 131.128, 132.128, 133.128, 135.128, 152.128, 155.128, 203.128, 246.128, 247.128, 248.128],
         'stream': 'oper',
         'type': 'an',
         "area": "0/0/-80/360",
         "grid": "1.0/1.0",
-    }, f'grib/era5{sys.argv[1]}T{sys.argv[2]}.ml.grib')
+    }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.ml.grib')
 
 def pl():
     c_pl.retrieve('reanalysis-era5-complete', {
@@ -38,7 +38,7 @@ def pl():
         'type': 'an',
         "area": "0/0/-80/360",
         "grid": "1.0/1.0",
-    }, f'grib/era5{sys.argv[1]}T{sys.argv[2]}.pl.grib')
+    }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.pl.grib')
 
 def pv():
     c_pv.retrieve('reanalysis-era5-complete', {
@@ -53,7 +53,7 @@ def pv():
         'type': 'an',
         "area": "0/0/-80/360",
         "grid": "1.0/1.0",
-    }, f'grib/era5{sys.argv[1]}T{sys.argv[2]}.pv.grib')
+    }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.pv.grib')
 
 def tl():
     c_tl.retrieve('reanalysis-era5-complete', {
@@ -68,7 +68,7 @@ def tl():
         'type': 'an',
         "area": "0/0/-80/360",
         "grid": "1.0/1.0",
-    }, f'grib/era5{sys.argv[1]}T{sys.argv[2]}.tl.grib')
+    }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.tl.grib')
 
 def sfc():
     c_sfc.retrieve('reanalysis-era5-complete', {
@@ -76,21 +76,25 @@ def sfc():
         'time': sys.argv[2],
         'date': sys.argv[1],
         'expver': '1',
-        'levelist': 'all',
         'levtype': 'sfc',
-        'param': 'all',
+        'param': ["151.128", "165.128", "166.128", "186.128", "187.128", "188.128"],
         'stream': 'oper',
         'type': 'an',
         "area": "0/0/-80/360",
         "grid": "1.0/1.0",
-    }, f'grib/era5{sys.argv[1]}T{sys.argv[2]}.sfc.grib')
+    }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.sfc.grib')
 
 threads = []
-#threads.append(Thread(target=ml))
-#threads.append(Thread(target=pl))
-#threads.append(Thread(target=pv))
-threads.append(Thread(target=tl))
-#threads.append(Thread(target=sfc))
+if "ml" in sys.argv:
+    threads.append(Thread(target=ml))
+if "pl" in sys.argv:
+    threads.append(Thread(target=pl))
+if "pv" in sys.argv:
+    threads.append(Thread(target=pv))
+if "tl" in sys.argv:
+    threads.append(Thread(target=tl))
+if "sfc" in sys.argv:
+    threads.append(Thread(target=sfc))
 
 for thread in threads:
     thread.start()

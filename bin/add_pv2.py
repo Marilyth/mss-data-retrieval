@@ -1017,23 +1017,26 @@ def add_vertical_wind(ncin, model):
 
 def add_metpy(option, filename):
     """
-    Adds the variables possible through metpy, this is actually only theta and pv...
-    Functions for other variables exist, e.g. n2, but don't exactly work
+    Adds the variables possible through metpy (theta, pv, n2)
     """
-    with xr.open_dataset(filename) as xin:
-        if option.theta or option.pv:
-            theta = potential_temperature(xin["PRESS"], xin["TEMP"])
-            temperature_from_potential_temperature
-            xin["THETA"] = theta
-        if option.pv:
-            xin["THETA"] = xin["THETA"].metpy.assign_crs(grid_mapping_name='latitude_longitude',
-                                                         earth_radius=6.356766e6)
-            pv = potential_vorticity_baroclinic(xin["THETA"], xin["PRESS"], xin["U"], xin["V"])
-            xin["PV"] = pv
-        # if option.n2:
-            # This is not working.. geopotential height is not recognised as a length
-            # n2 = brunt_vaisala_frequency_squared(xin["GPH"], theta)
-            # xin["N2"] = n2
+    xin = xr.open_dataset(filename)
+    if option.theta or option.pv:
+        print("Adding THETA")
+        theta = potential_temperature(xin["PRESS"], xin["TEMP"])
+        temperature_from_potential_temperature
+        xin["THETA"] = theta
+    if option.pv:
+        print("Adding PV")
+        xin["THETA"] = xin["THETA"].metpy.assign_crs(grid_mapping_name='latitude_longitude',
+                                                     earth_radius=6.356766e6)
+        pv = potential_vorticity_baroclinic(xin["THETA"], xin["PRESS"], xin["U"], xin["V"])
+        xin["PV"] = pv
+    if option.n2:
+        print("Adding N2")
+        n2 = brunt_vaisala_frequency_squared(geopotential_to_height(xin["GPH"]), theta)
+        xin["N2"] = n2
+    xin.close()
+    xin.to_netcdf(filename)
 
 
 def add_rest(option, model, filename):
@@ -1055,9 +1058,6 @@ def add_rest(option, model, filename):
         add_surface(ncin, model, "PRESSURE", option.surface_pressure)
         add_surface(ncin, model, "THETA", option.surface_theta)
 
-        if option.n2:
-            add_n2(ncin, model)
-
         if option.tropopause:
             add_tropopauses(ncin, model)
 
@@ -1066,9 +1066,6 @@ def add_rest(option, model, filename):
 
         if option.temp_background:
             add_temp_background(ncin, model)
-
-        if option.vertical_wind:
-            add_vertical_wind(ncin, model)
 
 
 def main():

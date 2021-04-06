@@ -23,6 +23,7 @@ declare -A NETCDF_PARAMS=( ["fill_value"]="np.nan" )
 
 tmpfile="./tmp.nc"
 tmpgrib="./tmp.grib"
+tmpgrib2="./tmp2.grib"
 
 # Dynamically assign named command line arguments
 for ARGUMENT in "$@"
@@ -32,30 +33,33 @@ do
     declare "$KEY=$VALUE"     
 done
 
-add_pressure_gph () {
-    # gheight is in meters, convert
-    cdo gheight $input gph.grib
-    cdo expr,"gh=gh*${GPH_FAC[$gph_units]}" gph.grib gph2.grib
-    mv gph2.grib gph.grib
-    
-    # pressure is in Pa, convert
-    cdo pressure_fl $input pressure.grib
-    cdo expr,"var1=var1*${PRESSURE_FAC[$pressure_units]}" pressure.grib pressure2.grib
-    mv pressure2.grib pressure.grib
+cdo -f nc4 copy $input $tmpfile
 
-    cat $input pressure.grib gph.grib > $tmpgrib
-    rm gph.grib pressure.grib
+add_pressure_gph () {
+    # add surface pressure, as lnsp is somehow not working for ERA5 and gheight
+    ncap2 -s 'sp=exp(lnsp);sp@units="Pa";sp@standard_name="surface_air_pressure";sp@code=134;sp@table=128' $tmpfile sp.nc
+    cdo gheight sp.nc gph.nc
+    # gheight is in meters, convert
+    ncap2 -s "zh=zh*${GPH_FAC[$gph_units]}" gph.nc gph2.nc
+    mv gph2.nc gph.nc
+    
+    cdo pressure_fl sp.nc pressure.nc
+    # pressure is in Pa, convert
+    ncap2 -s "pressure=pressure*${PRESSURE_FAC[$pressure_units]}" pressure.nc pressure2.nc
+    mv pressure2.nc pressure.nc
+
+    cdo merge $tmpfile gph.nc pressure.nc merged.nc
+    mv merged.nc $tmpfile
+    rm gph.nc pressure.nc sp.nc
 }
 
 echo "Constructing gph and pressure"
-#add_pressure_gph
+add_pressure_gph
 
-echo "Creating ncdf, Renaming variables, dropping unused"
-cdo -f nc4 copy $tmpgrib $tmpfile
-rm $tmpgrib
+echo "Renaming variables, dropping unused"
 ncrename -d .lev_2,level -v .lev_2,level $tmpfile
-ncrename -v .gh,GPH $tmpfile
-ncrename -v .var1,PRESS $tmpfile
+ncrename -v .zh,GPH $tmpfile
+ncrename -v .pressure,PRESS $tmpfile
 ncatted -a units,GPH,o,c,$gph_units $tmpfile
 ncatted -a units,PRESS,o,c,$pressure_units $tmpfile
 ncatted -a units,time,o,c,$time_units $tmpfile
@@ -72,5 +76,5 @@ ncrename -v .u,U $tmpfile
 #ncks -C -O -x -v hybi tmp2.nc $tmpfile
 #ncks -C -O -x -v hyam $tmpfile tmp2.nc
 #ncks -C -O -x -v hybm tmp2.nc $tmpfile
-rm tmp2.nc
+#rm tmp2.nc
 mv $tmpfile $output
