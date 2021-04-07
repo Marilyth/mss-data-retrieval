@@ -9,11 +9,9 @@ export OPENBLAS_NUM_THREADS=${OMP_NUM_THREADS}
 export VECLIB_MAXIMUM_THREADS=${OMP_NUM_THREADS}
 
 export WORK=/home/mayb/Desktop/MSS/github_data-retrieval/mss-data-retrieval
+export MSS=/home/mayb/mss/testdata
 export GRIB2NCDF=$WORK/bin/grib2ncdf.sh
-export INTPMOD=$WORK/bin/scripts/interpolate_model.py
-export ADDPV=$WORK/bin/add_pv2.py
-export CONVW=$WORK/bin/convert_omega_to_w.py
-export INTPPV=$WORK/bin/interpolate_pv.py
+export ADDPV=$WORK/bin/add_pv.py
 
 cd $WORK
 
@@ -95,19 +93,24 @@ ncks -6 -C -O -vtime,level,lon,lat,N2,clwc,U,Q,TEMP,PRESS,GPH,cc,W,V,ciwc,THETA,
 mv $tmpfile $mlfile
 
 # interpolate to different grids
-#python $INTPMOD -v 1 $mlfile $plfile --level-type pressure --vert-unit hPa --levels 850,500,400,300,200,150,120,100,80,65,50,40,30,20,10,5,1
+# pressure levels
 cdo ml2pl,85000,50000,40000,30000,20000,15000,12000,10000,8000,6500,5000,4000,3000,2000,1000,500,100 $mlfile $plfile
 ncatted -O -a standard_name,plev,o,c,atmosphere_pressure_coordinate $plfile
 ncks -C -O -x -v lev,sp,lnsp $plfile $plfile
-mv $plfile /home/mayb/mss/testdata/EUR_LL015.an.pl.nc
+mv $plfile ${MSS}/EUR_LL015.an.pl.nc
+
+# theta levels, todo
 #python $INTPMOD -v 1 $mlfile $tlfile --level-type theta --vert-unit K --levels 340,360,370,380,390,400,410,420
-python $INTPPV $mlfile $pvfile
+
+# potential vorticity levels, todo
+#python $INTPPV $mlfile $pvfile
 ncks -6 -C -O -vtime,level,lon,lat,N2,U,TEMP,PRESS,GPH,W,V,THETA,PV,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
-#python $INTPMOD -v 1 $tmpfile $alfile --level-type gph --vert-unit km --levels $gph_levels
+
+# altitude levels
 cdo ml2hl,$gph_levels $tmpfile $alfile
 ncatted -O -a standard_name,height,o,c,atmosphere_altitude_coordinate $alfile
 ncks -C -O -x -v lev,sp,lnsp $alfile $alfile
-mv $alfile /home/mayb/mss/testdata/EUR_LL015.an.al.nc
+mv $alfile ${MSS}/EUR_LL015.an.al.nc
 rm $tmpfile
 
 ncks -6 -O -d level,0,0 -d level,16,28,4 -d level,32,124,2 $mlfile $tmpfile
@@ -116,4 +119,5 @@ nccopy -7 -s -d7 $tmpfile $mlfile
 rm $tmpfile
 ncatted -O -a standard_name,level,o,c,atmosphere_hybrid_sigma_pressure_coordinate $mlfile
 ncks -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $mlfile $mlfile
-mv $mlfile /home/mayb/mss/testdata/EUR_LL015.an.ml.nc
+mv $mlfile ${MSS}/EUR_LL015.an.ml.nc
+mv $sfcfile ${MSS}/EUR_LL015.an.sfc.nc

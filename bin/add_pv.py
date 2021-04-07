@@ -12,6 +12,11 @@ import itertools
 import optparse
 import os
 import sys
+from metpy.calc import *
+from metpy.units import units
+from metpy.calc import thickness_hydrostatic
+from metpy.constants import earth_gravity, dry_air_gas_constant
+import xarray as xr
 
 import netCDF4
 import numpy as np
@@ -141,6 +146,27 @@ def smooth_polynomially(xs, ys, n_points, degree):
             result[i] = np.polyval(p, xs[i])
     return result
 
+def get_create_variable(ncin, model, name):
+    """
+    Either retrieves a variable from NetCDF or creates it,
+    in case it is not yet present.
+    """
+    if name not in ncin.variables:
+        if name in VARIABLES:
+            dim, units, standard_name, long_name = VARIABLES[name]
+        else:
+            fields = name.split("_")
+            assert fields[1] == "SURFACE"
+            dim, units, long_name = VARIABLES["_".join(fields[1:4:2])]
+            long_name += fields[2]
+        var_id = ncin.createVariable(name, "f4", DIMS[model][dim],
+                                     **NETCDF4_PARAMS)
+        var_id.units = units
+        var_id.long_name = long_name
+        if standard_name:
+            var_id.standard_name = standard_name
+    return ncin.variables[name]
+
 
 def find_tropopause(alts, temps):
     """
@@ -211,28 +237,6 @@ def find_tropopause(alts, temps):
                 result.append(alt)
                 seek = False
     return result
-
-
-def get_create_variable(ncin, model, name):
-    """
-    Either retrieves a variable from NetCDF or creates it,
-    in case it is not yet present.
-    """
-    if name not in ncin.variables:
-        if name in VARIABLES:
-            dim, units, standard_name, long_name = VARIABLES[name]
-        else:
-            fields = name.split("_")
-            assert fields[1] == "SURFACE"
-            dim, units, long_name = VARIABLES["_".join(fields[1:4:2])]
-            long_name += fields[2]
-        var_id = ncin.createVariable(name, "f4", DIMS[model][dim],
-                                     **NETCDF4_PARAMS)
-        var_id.units = units
-        var_id.long_name = long_name
-        if standard_name:
-            var_id.standard_name = standard_name
-    return ncin.variables[name]
 
 
 def swap_axes_write(model, variable):
@@ -883,15 +887,12 @@ def add_tropopauses(ncin, model):
     get_create_variable(ncin, model, "TROPOPAUSE_SECOND_THETA")[:] = swap_axes_hor(model, above_tropo2_theta)
 
 
-def add_jetstream(ncin, model):
+def add_jetstream(press, u, v):
     """
     Adds alpha vel and deltavrel accoring to
     Koch06 - AN EVENT-BASED JET-STREAM CLIMATOLOGY AND TYPOLOGY
     """
 
-    press = get_pressure(ncin, model)
-    u = swap_axes_read(model, ncin.variables["U"][:])
-    v = swap_axes_read(model, ncin.variables["V"][:])
     alphavel = np.zeros((press.shape[0], press.shape[2], press.shape[3]))
     deltavrel = np.zeros(alphavel.shape)
 
@@ -908,9 +909,9 @@ def add_jetstream(ncin, model):
         press_idc = [k for k in range(press.shape[1])
                      if pmin < press[iti, k, ila, ilo] < pmax]
         press_prof = np.asarray(
-            [pmin] + press[iti, press_idc, ila, ilo].tolist() + [pmax])
+            [pmin] + press[iti, press_idc, ila, ilo] + [pmax])
         uv_prof = np.asarray(
-            [uv_border[0]] + uv[iti, press_idc, ila, ilo].tolist() + [uv_border[1]])
+            [uv_border[0]] + uv[iti, press_idc, ila, ilo] + [uv_border[1]])
 
         alphavel[iti, ila, ilo] = np.trapz(uv_prof, x=press_prof) / (pmax - pmin)
         deltavrel[iti, ila, ilo] = (uv_border[2] - uv_border[3]) / uv_border[2]
@@ -1014,8 +1015,37 @@ def add_vertical_wind(ncin, model):
         get_create_variable(ncin, model, "W")[:] = swap_axes_write(model, w)
 
 
-def add(option, model, filename):
+def add_metpy(option, filename):
+    """
+    Adds the variables possible through metpy (theta, pv, n2)
+    """
+    with xr.load_dataset(filename) as xin:
+        if option.theta or option.pv:
+            print("Adding THETA")
+            xin["THETA"] = potential_temperature(xin["PRESS"], xin["TEMP"])
+            xin["THETA"].data = np.array(xin["THETA"].data)
+            xin["THETA"].attrs["units"] = "K"
+        if option.pv:
+            print("Adding PV")
+            xin = xin.metpy.assign_crs(grid_mapping_name='latitude_longitude',
+                                       earth_radius=6.356766e6)
+            xin["PV"] = potential_vorticity_baroclinic(xin["THETA"], xin["PRESS"], xin["U"], xin["V"])
+            xin["PV"].data = np.array(xin["PV"].data)
+            xin = xin.drop("metpy_crs")
+            xin["PV"].attrs["units"] = "kelvin * meter ** 2 / kilogram / second"
+            xin["MOD_PV"] = xin["PV"] * ((xin["THETA"] / 360) ** (-4.5))
+        if option.n2:
+            print("Adding N2")
+            xin["N2"] = brunt_vaisala_frequency_squared(geopotential_to_height(xin["GPH"]), xin["THETA"])
+            xin["N2"].data = np.array(xin["N2"].data)
+            xin["N2"].attrs["units"] = "1 / s ** 2"
+        xin.to_netcdf(filename)
 
+
+def add_rest(option, model, filename):
+    """
+    Adds the variables not possible through metpy
+    """
     # Open NetCDF file as passed from command line
     with netCDF4.Dataset(filename, "r+") as ncin:
 
@@ -1024,16 +1054,6 @@ def add(option, model, filename):
             history += "\n" + ncin.history
         ncin.history = history
         ncin.date_modified = datetime.datetime.now().isoformat()
-
-        if option.pressure:
-            add_pressure(ncin, model)
-
-        if option.theta:
-            add_theta(ncin, model)
-
-        if option.pv:
-            add_pv(ncin, model)
-            add_mod_pv(ncin, model, 360, 4.5)  # 360 ~ 13km
 
         if option.eqlat:
             add_eqlat(ncin, model)
@@ -1044,25 +1064,18 @@ def add(option, model, filename):
         if option.tropopause:
             add_tropopauses(ncin, model)
 
-        if option.n2:
-            add_n2(ncin, model)
-
         if option.jetstream:
             add_jetstream(ncin, model)
 
         if option.temp_background:
             add_temp_background(ncin, model)
 
-        if option.divergence:
-            add_divergence(ncin, model)
-
-        if option.vertical_wind:
-            add_vertical_wind(ncin, model)
-
 
 def main():
+    #add_metpy(None, "/home/mayb/Desktop/MSS/github_data-retrieval/mss-data-retrieval/mss/2020-09-01T12:00:00.an.ml.nc")
     option, model, filename = parse_args(sys.argv[1:])
-    add(option, model, filename)
+    add_metpy(option, filename)
+    add_rest(option, model, filename)
 
 
 if __name__ == "__main__":
