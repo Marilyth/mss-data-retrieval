@@ -61,7 +61,7 @@ def tl():
         'time': sys.argv[2],
         'date': sys.argv[1],
         'expver': '1',
-        'levelist': [340, 360],
+        'levelist': 'all',
         'levtype': 'pt',
         'param': 'all',
         'stream': 'oper',

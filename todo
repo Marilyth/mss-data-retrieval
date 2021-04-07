@@ -1,6 +1,6 @@
 How to use:
 register at cds
-create key file in home
+create api key file ~/.cdsapirc
 accept their TOS
 install requirements
 execute get_data.sh
