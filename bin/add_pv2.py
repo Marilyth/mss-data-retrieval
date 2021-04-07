@@ -1019,24 +1019,26 @@ def add_metpy(option, filename):
     """
     Adds the variables possible through metpy (theta, pv, n2)
     """
-    xin = xr.open_dataset(filename)
-    if option.theta or option.pv:
-        print("Adding THETA")
-        theta = potential_temperature(xin["PRESS"], xin["TEMP"])
-        temperature_from_potential_temperature
-        xin["THETA"] = theta
-    if option.pv:
-        print("Adding PV")
-        xin["THETA"] = xin["THETA"].metpy.assign_crs(grid_mapping_name='latitude_longitude',
-                                                     earth_radius=6.356766e6)
-        pv = potential_vorticity_baroclinic(xin["THETA"], xin["PRESS"], xin["U"], xin["V"])
-        xin["PV"] = pv
-    if option.n2:
-        print("Adding N2")
-        n2 = brunt_vaisala_frequency_squared(geopotential_to_height(xin["GPH"]), theta)
-        xin["N2"] = n2
-    xin.close()
-    xin.to_netcdf(filename)
+    with xr.load_dataset(filename) as xin:
+        if option.theta or option.pv:
+            print("Adding THETA")
+            xin["THETA"] = potential_temperature(xin["PRESS"], xin["TEMP"])
+            xin["THETA"].data = np.array(xin["THETA"].data)
+            xin["THETA"].attrs["units"] = "K"
+        if option.pv:
+            print("Adding PV")
+            xin = xin.metpy.assign_crs(grid_mapping_name='latitude_longitude',
+                                       earth_radius=6.356766e6)
+            xin["PV"] = potential_vorticity_baroclinic(xin["THETA"], xin["PRESS"], xin["U"], xin["V"])
+            xin["PV"].data = np.array(xin["PV"].data)
+            xin = xin.drop("metpy_crs")
+            xin["PV"].attrs["units"] = "kelvin * meter ** 2 / kilogram / second"
+        if option.n2:
+            print("Adding N2")
+            xin["N2"] = brunt_vaisala_frequency_squared(geopotential_to_height(xin["GPH"]), xin["THETA"])
+            xin["N2"].data = np.array(xin["N2"].data)
+            xin["N2"].attrs["units"] = "1 / s ** 2"
+        xin.to_netcdf(filename)
 
 
 def add_rest(option, model, filename):
