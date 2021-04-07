@@ -1020,12 +1020,12 @@ def add_metpy(option, filename):
     Adds the variables possible through metpy (theta, pv, n2)
     """
     with xr.load_dataset(filename) as xin:
-        if option.theta or option.pv:
+        if True:#option.theta or option.pv:
             print("Adding THETA")
             xin["THETA"] = potential_temperature(xin["PRESS"], xin["TEMP"])
             xin["THETA"].data = np.array(xin["THETA"].data)
             xin["THETA"].attrs["units"] = "K"
-        if option.pv:
+        if True:#option.pv:
             print("Adding PV")
             xin = xin.metpy.assign_crs(grid_mapping_name='latitude_longitude',
                                        earth_radius=6.356766e6)
@@ -1033,7 +1033,8 @@ def add_metpy(option, filename):
             xin["PV"].data = np.array(xin["PV"].data)
             xin = xin.drop("metpy_crs")
             xin["PV"].attrs["units"] = "kelvin * meter ** 2 / kilogram / second"
-        if option.n2:
+            xin["MOD_PV"] = xin["PV"] * ((xin["THETA"] / 360) ** (-4.5))
+        if True:#option.n2:
             print("Adding N2")
             xin["N2"] = brunt_vaisala_frequency_squared(geopotential_to_height(xin["GPH"]), xin["THETA"])
             xin["N2"].data = np.array(xin["N2"].data)
@@ -1071,6 +1072,7 @@ def add_rest(option, model, filename):
 
 
 def main():
+    add_metpy(None, "/home/mayb/Desktop/MSS/github_data-retrieval/mss-data-retrieval/mss/2020-09-01T12:00:00.an.ml.nc")
     option, model, filename = parse_args(sys.argv[1:])
     add_metpy(option, filename)
     add_rest(option, model, filename)

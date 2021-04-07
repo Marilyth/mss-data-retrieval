@@ -48,7 +48,7 @@ add_pressure_gph () {
     ncap2 -s "pressure=pressure*${PRESSURE_FAC[$pressure_units]}" pressure.nc pressure2.nc
     mv pressure2.nc pressure.nc
 
-    cdo merge $tmpfile gph.nc pressure.nc merged.nc
+    cdo merge sp.nc gph.nc pressure.nc merged.nc
     mv merged.nc $tmpfile
     rm gph.nc pressure.nc sp.nc
 }

@@ -86,13 +86,12 @@ export time_units="hours since ${init_date}"
 $GRIB2NCDF input=${GRIB} output=$mlfile time_units="$time_units" pressure_units=Pa gph_units="m^2s^-2" level_type=level
 
 # Add ancillay information
-python $ADDPV MSSL $mlfile --pv --theta --tropopause --n2 --eqlat
-exit
+python $ADDPV MSSL $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now
 
 # separate sfc from ml variables
-ncks -7 -L 4 -C -O -x -.vlevel,.N2,.CLWC,.U,.Q,.TEMP,.PRESS,.GPH,.CC,.W,.V,.CIWC,.THETA,.PV,.MOD_PV,.O3,.DIVERGENCE,.EQLAT $mlfile $sfcfile
-ncatted -O -a standard_name,MSL,o,c,air_pressure_at_sea_level $sfcfile
-ncks -6 -C -O -.vtime,.level,.lon,.lat,.N2,.CLWC,.U,.Q,.TEMP,.PRESS,.GPH,.CC,.W,.V,.CIWC,.THETA,.PV,.MOD_PV,.O3,.DIVERGENCE,.EQLAT $mlfile $tmpfile
+ncks -7 -L 4 -C -O -x -vlevel,N2,clwc,U,Q,TEMP,PRESS,GPH,cc,W,V,ciwc,THETA,PV,MOD_PV,O3,DIVERGENCE $mlfile $sfcfile
+ncatted -O -a standard_name,msl,o,c,air_pressure_at_sea_level $sfcfile
+ncks -6 -C -O -vtime,level,lon,lat,N2,clwc,U,Q,TEMP,PRESS,GPH,cc,W,V,ciwc,THETA,PV,MOD_PV,O3,DIVERGENCE,hyai,hyam,hybi,hybm,sp,lnsp $mlfile $tmpfile
 mv $tmpfile $mlfile
 
 # interpolate to different grids
@@ -100,7 +99,7 @@ mv $tmpfile $mlfile
 cdo ml2pl,85000,50000,40000,30000,20000,15000,12000,10000,8000,6500,5000,4000,3000,2000,1000,500,100 $mlfile $plfile
 #python $INTPMOD -v 1 $mlfile $tlfile --level-type theta --vert-unit K --levels 340,360,370,380,390,400,410,420
 python $INTPPV $mlfile $pvfile
-ncks -6 -C -O -vtime,level,lon,lat,N2,U,TEMP,PRESS,GPH,W,V,THETA,PV $mlfile $tmpfile
+ncks -6 -C -O -vtime,level,lon,lat,N2,U,TEMP,PRESS,GPH,W,V,THETA,PV,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
 #python $INTPMOD -v 1 $tmpfile $alfile --level-type gph --vert-unit km --levels $gph_levels
 cdo ml2hl,$gph_levels $tmpfile $alfile
 rm $tmpfile
