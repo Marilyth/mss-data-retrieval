@@ -12,6 +12,7 @@ export WORK=/home/mayb/Desktop/MSS/github_data-retrieval/mss-data-retrieval
 export MSS=/home/mayb/mss/testdata
 export GRIB2NCDF=$WORK/bin/grib2ncdf.sh
 export ADDPV=$WORK/bin/add_pv.py
+export INTP=$WORK/bin/interpolate_missing_variables.py
 
 cd $WORK
 
@@ -51,8 +52,13 @@ fi
 if [ ! -f grib/${BASE}.sfc.grib ]; then
     python bin/download_an_all.py $DATE $TIME sfc &
 fi
+if [ ! -f grib/${BASE}.pv.grib ]; then
+    python bin/download_an_all.py $DATE $TIME pv &
+fi
+if [ ! -f grib/${BASE}.tl.grib ]; then
+    python bin/download_an_all.py $DATE $TIME tl &
+fi
 wait
-
 
 if [ ! -f grib/${BASE}.ml.grib ]; then
    echo	FATAL `date` Model level file is missing
@@ -82,9 +88,31 @@ export time_units="hours since ${init_date}"
 # convert grib to netCDF
 #python $GRIB2NCDF ${GRIB} --output $mlfile --time-units "$time_units" --pressure-units Pa --gph-units "m^2s^-2" --level-type level --format NETCDF3_64BIT_OFFSET
 $GRIB2NCDF input=${GRIB} output=$mlfile time_units="$time_units" pressure_units=Pa gph_units="m^2s^-2" level_type=level
+cdo -f nc4 copy grib/${BASE}.tl.grib $tlfile
+ncrename -d .lev,level -v .lev,level $tlfile
+ncrename -v .pres,PRESS $tlfile
+ncatted -a units,time,o,c,$time_units $tlfile
+ncrename -v .d,DIVERGENCE $tlfile
+ncrename -v .q,Q $tlfile
+ncrename -v .v,V $tlfile
+ncrename -v .o3,O3 $tlfile
+ncrename -v .w,W $tlfile
+ncrename -v .u,U $tlfile
+ncrename -v .pv,PV $tlfile
+cdo -f nc4 copy grib/${BASE}.pv.grib $pvfile
+ncrename -d .lev,level -v .lev,level $pvfile
+ncrename -v .pres,PRESS $pvfile
+ncatted -a units,time,o,c,$time_units $pvfile
+ncrename -v .d,DIVERGENCE $pvfile
+ncrename -v .q,Q $pvfile
+ncrename -v .v,V $pvfile
+ncrename -v .o3,O3 $pvfile
+ncrename -v .w,W $pvfile
+ncrename -v .u,U $pvfile
+ncrename -v .pt,THETA $pvfile
 
 # Add ancillay information
-python $ADDPV MSSL $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now
+python $ADDPV MSSL $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
 
 # separate sfc from ml variables
 ncks -7 -L 4 -C -O -x -vlevel,N2,clwc,U,Q,TEMP,PRESS,GPH,cc,W,V,ciwc,THETA,PV,MOD_PV,O3,DIVERGENCE $mlfile $sfcfile
@@ -99,14 +127,22 @@ ncatted -O -a standard_name,plev,o,c,atmosphere_pressure_coordinate $plfile
 ncks -C -O -x -v lev,sp,lnsp $plfile $plfile
 mv $plfile ${MSS}/EUR_LL015.an.pl.nc
 
-# theta levels, todo
-#python $INTPMOD -v 1 $mlfile $tlfile --level-type theta --vert-unit K --levels 340,360,370,380,390,400,410,420
+# theta levels
+python $INTP $mlfile $tlfile GPH THETA
+python $INTP $mlfile $tlfile N2 THETA
+python $INTP $mlfile $tlfile TEMP THETA
+ncatted -O -a standard_name,level,o,c,atmosphere_potential_temperature_coordinate $tlfile
+mv $tlfile ${MSS}/EUR_LL015.an.tl.nc
 
-# potential vorticity levels, todo
-#python $INTPPV $mlfile $pvfile
-ncks -6 -C -O -vtime,level,lon,lat,N2,U,TEMP,PRESS,GPH,W,V,THETA,PV,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
+# potential vorticity levels
+python $INTP $mlfile $pvfile GPH PV
+python $INTP $mlfile $pvfile N2 PV
+python $INTP $mlfile $pvfile TEMP PV
+ncatted -O -a standard_name,level,o,c,atmosphere_ertel_potential_vorticity_coordinate $pvfile
+mv $pvfile ${MSS}/EUR_LL015.an.pv.nc
 
 # altitude levels
+ncks -6 -C -O -vtime,level,lon,lat,N2,U,TEMP,PRESS,GPH,W,V,THETA,PV,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
 cdo ml2hl,$gph_levels $tmpfile $alfile
 ncatted -O -a standard_name,height,o,c,atmosphere_altitude_coordinate $alfile
 ncks -C -O -x -v lev,sp,lnsp $alfile $alfile
