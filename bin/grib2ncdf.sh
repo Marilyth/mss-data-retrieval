@@ -57,24 +57,7 @@ echo "Constructing gph and pressure"
 add_pressure_gph
 
 echo "Renaming variables, dropping unused"
-ncrename -d .lev_2,level -v .lev_2,level $tmpfile
-ncrename -v .zh,GPH $tmpfile
-ncrename -v .pressure,PRESS $tmpfile
-ncatted -a units,GPH,o,c,$gph_units $tmpfile
-ncatted -a units,PRESS,o,c,$pressure_units $tmpfile
-ncatted -a units,time,o,c,$time_units $tmpfile
-ncrename -v .d,DIVERGENCE $tmpfile
-ncrename -v .t,TEMP $tmpfile
-ncrename -v .q,Q $tmpfile
-ncrename -v .v,V $tmpfile
-ncrename -v .o3,O3 $tmpfile
-ncrename -v .w,W $tmpfile
-ncrename -v .u,U $tmpfile
-#ncwa -a nhyi $tmpfile tmp2.nc
-#ncwa -a nhym tmp2.nc $tmpfile
-#ncks -C -O -x -v hyai $tmpfile tmp2.nc
-#ncks -C -O -x -v hybi tmp2.nc $tmpfile
-#ncks -C -O -x -v hyam $tmpfile tmp2.nc
-#ncks -C -O -x -v hybm tmp2.nc $tmpfile
-#rm tmp2.nc
+ncatted -a units,zh,o,c,$gph_units $tmpfile
+ncatted -a units,pressure,o,c,$pressure_units $tmpfile
+ncatted -a units,time,o,c,"${time_units}" $tmpfile
 mv $tmpfile $output

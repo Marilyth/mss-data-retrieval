@@ -85,23 +85,16 @@ DIMS = {
 assert NAMES.keys() == DIMS.keys()
 
 VARIABLES = {
-    "PRESSURE": ("FULL", "hPa", "air_pressure", "Pressure"),
-    "THETA": ("FULL", "K", "air_potential_temperature", "Potential Temperature"),
-    "PV": ("FULL", "m^2 K s^-1 kg^-1 10E-6", "ertel_potential_vorticity", "Potential Vorticity"),
-    "MOD_PV": ("FULL", "m^2 K s^-1 kg^-1 10E-6", "", "Modified Potential Vorticity"),
+    "pressure": ("FULL", "hPa", "air_pressure", "Pressure"),
+    "pt": ("FULL", "K", "air_potential_temperature", "Potential Temperature"),
+    "pv": ("FULL", "m^2 K s^-1 kg^-1 10E-6", "ertel_potential_vorticity", "Potential Vorticity"),
+    "mod_pv": ("FULL", "m^2 K s^-1 kg^-1 10E-6", "", "Modified Potential Vorticity"),
     "EQLAT": ("FULL", "degree N", "equivalent_latitude", "Equivalent Latitude"),
-    "GPH": ("FULL", "km", "geopotential_height", "Geopotential Altitude"),
-    "T_BACKGROUND": ("FULL", "K", "air_temperature_background", "Background Temperature"),
-    "T_RESIDUAL": ("FULL", "K", "air_temperature_residual", "Temperature Residual"),
-    "W": ("FULL", "m/s", "upward_air_velocity", "Vertical Wind Velocity"),
-    "N2": ("FULL", "s^-2", "square_of_brunt_vaisala_frequency_in_air", "N^2"),
-    "DIVERGENCE": ("FULL", "s^-1", "divergence_of_wind", "Wind Divergence"),
+    "zh": ("FULL", "km", "geopotential_height", "Geopotential Altitude"),
+    "w": ("FULL", "m/s", "upward_air_velocity", "Vertical Wind Velocity"),
+    "n2": ("FULL", "s^-2", "square_of_brunt_vaisala_frequency_in_air", "N^2"),
     "SURFACE_UV": ("HORIZONTAL", "m s^-1", "", "Horizontal Wind Speed at "),
     "SURFACE_PV": ("HORIZONTAL", "m^2 K s^-1 kg^-1 10E-6", "", "Potential Vorticity at "),
-    "ALPHA_VEL": ("HORIZONTAL", "m s^- ", "",
-                  "Average horizontal wind speed between 100 and 400 hPa (threshold 30 m/s)"),
-    "DELTA_V_REL": ("HORIZONTAL", "unitless", "",
-                    "relative horizontal wind shear between 200 and 500 hPa (threshold 0.4)"),
     "TROPOPAUSE": ("HORIZONTAL", "km", "tropopause_altitude",
                    "vertical location of first WMO thermal tropopause"),
     "TROPOPAUSE_PRESSURE": ("HORIZONTAL", "Pa", "tropopause_air_pressure",
@@ -114,37 +107,8 @@ VARIABLES = {
                                    "vertical location of second WMO thermal tropopause"),
     "TROPOPAUSE_SECOND_THETA": ("HORIZONTAL", "K", "secondary_tropopause_air_potential_temperature",
                                 "vertical location of second WMO thermal tropopause"),
-    "N2_MAX_ABOVE_TROPO": ("HORIZONTAL", "s^-2", "max_of_square_of_brunt_vaisala_frequency_above_tropopause_in_air", ""),
-    "N2_MEAN_ABOVE_TROPO": ("HORIZONTAL", "s^-2", "mean_of_square_of_brunt_vaisala_frequency_above_tropopause_in_air", ""),
 }
 
-
-def smooth_polynomially(xs, ys, n_points, degree):
-    """
-    Smoothens a vector by polynomial fit.
-
-    Args:
-        xs: vector of coordinates
-        ys: vector of values
-        n_points: number of points to use in local polynomial fit
-        degree: degree of polynomial to fit with
-    Result:
-        vector of smoothened values
-    """
-    n_points = min(n_points, len(xs))
-    result = ys.copy()
-    n_points_h = n_points / 2
-    for i in range(len(ys)):
-        imin = max(0, i - n_points_h)
-        imax = min(len(ys), imin + n_points)
-        imin = imax - n_points
-        assert imin >= 0
-        rads = ys[imin:imax]
-        sel = np.isfinite(rads)
-        if sel.sum() >= degree * 2:
-            p = np.polyfit(xs[imin:imax][sel], rads[sel], degree)
-            result[i] = np.polyval(p, xs[i])
-    return result
 
 def get_create_variable(ncin, model, name):
     """
@@ -239,34 +203,6 @@ def find_tropopause(alts, temps):
     return result
 
 
-def swap_axes_write(model, variable):
-    """
-    Swaps the axis of the variable according to model for writing.
-    """
-    if model.startswith("ECMWF"):
-        return variable[:, ::-1, :, :].swapaxes(1, 3)
-    return variable
-
-
-def swap_axes_read(model, variable):
-    """
-    Swaps the axis of the variable according to model for reading.
-    """
-    if model.startswith("ECMWF"):
-        result = variable.swapaxes(1, 3)[:, ::-1, :, :]
-    else:
-        result = variable
-    if isinstance(result, np.ma.core.MaskedArray):
-        result[result.mask] = np.nan
-    return result
-
-
-def swap_axes_hor(model, variable):
-    if model.startswith("ECMWF"):
-        return variable.swapaxes(1, 2)
-    return variable
-
-
 def parse_args(args):
     oppa = optparse.OptionParser(usage="""
     add_pv.py
@@ -281,14 +217,12 @@ def parse_args(args):
     add_pv.py ECMWFP ecmwfr_ana_ml_06072912.nc
     """)
 
-    oppa.add_option('--pressure', '', action='store_true',
-                    help="Add PRESSURE field")
     oppa.add_option('--theta', '', action='store_true',
-                    help="Add THETA potential temperature field")
+                    help="Add pt potential temperature field")
     oppa.add_option('--n2', '', action='store_true',
-                    help="Add N2 static stability.")
+                    help="Add n2 static stability.")
     oppa.add_option('--pv', '', action='store_true',
-                    help="Add PV potential vorticity.")
+                    help="Add pv potential vorticity.")
     oppa.add_option('--tropopause', '', action='store_true',
                     help="Add first and second tropopause")
     oppa.add_option('--eqlat', '', action='store_true',
@@ -297,14 +231,6 @@ def parse_args(args):
                     help="Add PV and UV on given hPa surfaces, e.g., 200:300:400.")
     oppa.add_option('--surface_theta', '', action='store', type=str,
                     help="Add PV and UV on given theta surfaces, e.g., 200:300:400.")
-    oppa.add_option('--jetstream', '', action='store_true',
-                    help="Add scalar fields for jetstream identification")
-    oppa.add_option('--temp_background', '', action='store_true',
-                    help="Add background Temperature to model data")
-    oppa.add_option('--vertical_wind', '-w', action='store_true',
-                    help="Add vertical wind (requires OMEGA field)")
-    oppa.add_option('--divergence', '', action='store_true',
-                    help="Add wind divergence")
     opt, arg = oppa.parse_args(args)
 
     if len(arg) != 2:
@@ -320,272 +246,10 @@ def parse_args(args):
     return opt, arg[0], arg[1]
 
 
-def get_pressure(ncin, model):
-    """
-    This function gets a pressure field from a model.
-    """
-    if "PRESSURE" in ncin.variables:
-        press = swap_axes_read(model, ncin.variables["PRESSURE"][:])
-    else:
-        temp = get_temperature(ncin, model)
-        if model == "WACCM":
-            hyam = ncin.variables["hyam"][:][np.newaxis, :, np.newaxis, np.newaxis]
-            hybm = ncin.variables["hybm"][:][np.newaxis, :, np.newaxis, np.newaxis]
-            ps = ncin.variables["PS"][:][:, np.newaxis, :, :]
-
-            press = (hyam * 100000. + hybm * ps) / 100.
-            del hyam, hybm, ps
-        if model == "MACC":
-            hyam = ncin.variables["a"][:][np.newaxis, :, np.newaxis, np.newaxis]
-            hybm = ncin.variables["b"][:][np.newaxis, :, np.newaxis, np.newaxis]
-            ps = ncin.variables["ps"][:][:, np.newaxis, :, :] / 100.
-            p0 = ncin.variables["p0"][0] / 100.
-            press = hyam * p0 + hybm * ps
-            del hyam, hybm
-
-            if "GPH" not in ncin.variables:
-                from pyjurassic.core import construct_gph
-                gph = np.zeros(press.shape)
-                ps = ps.astype(float)
-                for iti, ilo, ila in tqdm.tqdm(
-                        itertools.product(range(gph.shape[0]), range(gph.shape[3]), range(gph.shape[2])),
-                        total=gph.shape[0] * gph.shape[3] * gph.shape[2], ascii=True):
-                    gph[iti, :, ila, ilo] = construct_gph(
-                        temp[iti, :, ila, ilo].astype(float),
-                        press[iti, :, ila, ilo].astype(float),
-                        1013.25)
-
-                get_create_variable(ncin, model, "GPH")[:] = swap_axes_write(model, gph)
-            del ps, p0
-        elif model in ["ECMWFZ", "ECMWFH", "ECMWFT"]:
-            press = swap_axes_read(model, ncin.variables["PRESS"][:])
-        elif model == "ECMWFP":
-            press = np.zeros(temp.shape)
-            press.swapaxes(1, 3)[:] = ncin.variables["press"][:][::-1]
-        elif model in ["MSSL", "MSST", "MSSZ"]:
-            press = ncin.variables["PRESS"][:]
-            assert ncin.variables["PRESS"].units in ["Pa", "hPa"]
-            if ncin.variables["PRESS"].units == "Pa":
-                press /= 100.
-        elif model == "MSSP":
-            press = np.zeros(temp.shape)
-            press.swapaxes(1, 3)[:] = ncin.variables["pressure"][:]
-            assert ncin.variables["pressure"].units in ["Pa", "hPa"]
-            if ncin.variables["pressure"].units == "Pa":
-                press /= 100.
-        else:
-            assert model == "FNL"
-            press = np.zeros(temp.shape)
-            press.swapaxes(1, 3)[:] = ncin.variables["press"][:]
-
-    return press
-
-
-def get_gph(ncin, model):
-    if NAMES[model]["GPH"][0] in ncin.variables:
-        gph = swap_axes_read(
-            model, ncin.variables[NAMES[model]["GPH"][0]][:] / NAMES[model]["GPH"][1])
-    else:
-        temp = get_temperature(ncin, model)
-        gph = np.zeros_like(temp)
-        var = None
-        if "altitude" in ncin.variables and len(ncin.variables["altitude"].shape) == 1:
-            var = "altitude"
-        if "height" in ncin.variables and len(ncin.variables["height"].shape) == 1:
-            var = "height"
-        assert var is not None
-        fac = 1
-        if ncin.variables[var].units == "m":
-            fac = 1. / 1000.
-        if model.startswith("ECMWF"):
-            gph[:] = ncin.variables[var][:][np.newaxis, ::-1, np.newaxis, np.newaxis] * fac
-        else:
-            gph[:] = ncin.variables[var][:][np.newaxis, :, np.newaxis, np.newaxis] * fac
-    return gph
-
-
-def get_temperature(ncin, model):
-    try:
-        temp = swap_axes_read(model, ncin.variables[NAMES[model]["TEMP"]][:])
-    except KeyError:
-        temp = swap_axes_read(model, ncin.variables["TEMP_RESIDUAL"][:] +
-                              ncin.variables["TEMP_BACKGROUND"][:])
-    return temp
-
-
-def add_pressure(ncin, model):
-    """
-    This function adds pressure to a model, if not already present as
-    "PRESSURE". This is mostly here to more efficiently deal with data present
-    on model levels in a way consistent with data presented on other grids.
-    """
-    if "PRESSURE" not in ncin.variables:
-        print("Adding PRESSURE...")
-        press = get_pressure(ncin, model)
-        get_create_variable(ncin, model, "PRESSURE")[:] = swap_axes_write(model, press)
-
-
-def get_theta(ncin, model):
-    """
-    This function computes potential temperature from a model if not already present
-    """
-    if model in ["MSST"]:
-        temp = get_temperature(ncin, model)
-        theta = np.zeros_like(temp)
-        theta[:] = ncin.variables["theta"][:][np.newaxis, :, np.newaxis, np.newaxis]
-    elif "THETA" in ncin.variables:
-        theta = swap_axes_read(model, ncin.variables["THETA"][:])
-    else:
-        temp = get_temperature(ncin, model)
-        press = get_pressure(ncin, model)
-        theta = temp * (1000. / press) ** (287.04 / 1004.64) # **(2 / 7)
-    return theta
-
-
-def add_theta(ncin, model):
-    """
-    This function add potential temperature to a model, if not already present.
-    """
-    if "THETA" not in ncin.variables and model not in ["MSST"]:
-        print("Adding THETA...")
-        theta = get_theta(ncin, model)
-        get_create_variable(ncin, model, "THETA")[:] = swap_axes_write(model, theta)
-
-
-def add_n2(ncin, model):
-    """
-    This function adds static stability to a model, if not already present.
-    """
-    if "N2" not in ncin.variables:
-        print("Adding N2...")
-        theta = get_theta(ncin, model)
-        gph = get_gph(ncin, model)
-        n_sq = np.empty_like(theta)
-        n_sq[:] = np.nan
-        n_sq[:, 1:, :, :] = 1e-3 * (9.81 / theta[:, 1:, :, :]) * \
-            np.diff(theta, axis=1) / np.diff(gph, axis=1)
-        n_sq[:, 0, :, :] = n_sq[:, 1, :, :]
-        get_create_variable(ncin, model, "N2")[:] = swap_axes_write(model, n_sq)
-    else:
-        n_sq = swap_axes_read(model, ncin.variables["N2"][:])
-    if "N2_MAX_ABOVE_TROPO" not in ncin.variables and "TROPOPAUSE" in ncin.variables:
-        tropo = swap_axes_hor(model, ncin.variables["TROPOPAUSE"][:])
-        max_n_sq = np.empty((gph.shape[0], gph.shape[2], gph.shape[3]))
-        max_n_sq[:] = np.nan
-        mean_n_sq = max_n_sq.copy()
-        for iti, ilo, ila in tqdm.tqdm(
-                itertools.product(range(gph.shape[0]), range(gph.shape[3]), range(gph.shape[2])),
-                total=gph.shape[0] * gph.shape[3] * gph.shape[2], ascii=True):
-            sel = ((tropo[iti, ila, ilo] < gph[iti, :, ila, ilo]) &
-                   (gph[iti, :, ila, ilo] < (tropo[iti, ila, ilo] + 2)))
-            if sel.sum() > 0:
-                n_sq_sel = n_sq[iti, sel, ila, ilo]
-                max_n_sq[iti, ila, ilo] = n_sq_sel.max()
-                mean_n_sq[iti, ila, ilo] = n_sq_sel.mean()
-        get_create_variable(ncin, model, "N2_MAX_ABOVE_TROPO")[:] = swap_axes_hor(model, max_n_sq)
-        get_create_variable(ncin, model, "N2_MEAN_ABOVE_TROPO")[:] = swap_axes_hor(model, mean_n_sq)
-
-
-def add_pv(ncin, model):
-    """
-    This function calculates isentropic PV and adds it as a variable to a model.
-    """
-    print("Adding PV...")
-
-    def differentiate(f, dh, axis, coord=False):
-        """
-        if coord is set, dh is not the grid distance, but the coordinates themselves.
-        """
-        if axis != 3:
-            f = f.swapaxes(axis, 3)
-            if len(dh.shape) == 4:
-                dh = dh.swapaxes(axis, 3)
-
-        df = np.empty(f.shape)
-        df[..., 1:-1] = f[..., 2:] - f[..., :-2]
-        if len(dh.shape) == 0 or (len(dh.shape) == 4 and dh.shape[-1] == 1):
-            assert not coord
-            df[..., 1:-1] /= 2 * dh
-        else:
-            if coord:
-                df[..., 1:-1] /= dh[..., 2:] - dh[..., :-2]
-            else:
-                df[..., 1:-1] /= 2 * dh[..., 1:-1]
-        for i, i1, i2 in [(0, 1, 0), (-1, -1, -2)]:
-            if coord:
-                df[..., i] = (f[..., i1] - f[..., i2]) / (dh[..., i1] - dh[..., i2])
-            else:
-                if len(dh.shape) == 0:
-                    df[..., i] = (f[..., i1] - f[..., i2]) / dh
-                else:
-                    df[..., i] = (f[..., i1] - f[..., i2]) / dh[..., i]
-        if axis != 3:
-            df = df.swapaxes(axis, 3)
-        return df
-
-    rearth = 6.356766e6                  # Radius of the Earth (meters)
-    angrot = 7.29212e-5                  # Omega of Earth (rad/s)
-
-    latc = ncin.variables["lat"][:]
-    lonc = ncin.variables["lon"][:]
-
-    u, v = [swap_axes_read(model, ncin.variables[_x][:]) for _x in ["U", "V"]]
-    press = get_pressure(ncin, model)
-    theta = get_theta(ncin, model)
-    temp = get_temperature(ncin, model)
-
-    # Define finely spaced pressure grid to calculate potential vorticity.
-    # p_* variables are with respect to this pressure grid.
-    newshape = temp.shape
-
-    coslat = np.cos(np.deg2rad(latc))[np.newaxis, np.newaxis, :, np.newaxis]
-
-    dx = np.deg2rad(lonc[1] - lonc[0]) * rearth * coslat
-    dy = np.deg2rad(latc[1] - latc[0]) * rearth
-
-    # PV and vertical theta gradient in pressure
-
-    vort = np.zeros(newshape)
-
-    dvdx = differentiate(v, dx, 3)
-    dudy = differentiate(u * coslat, dy * coslat, 2)
-    dthetadx = differentiate(theta, dx, 3)
-    dthetady = differentiate(theta, dy, 2)
-
-    dvdtheta = differentiate(v, theta, 1, coord=True)
-    dvdtheta[np.isnan(dvdtheta)] = 0
-    dudtheta = differentiate(u, theta, 1, coord=True)
-    dudtheta[np.isnan(dudtheta)] = 0
-    dthetadp = differentiate(theta, press, 1, coord=True)
-
-    vort[:] = 2.0 * angrot * np.sin(np.deg2rad(latc))[np.newaxis, np.newaxis, :, np.newaxis]
-    vort += dvdx - dthetadx * dvdtheta
-    vort -= dudy - dthetady * dudtheta
-    vort[:, :, abs(latc) == 90, :] = np.nan
-
-    pv = vort * dthetadp * (-0.01 * 9.81 * 1e6)  # hPa->Pa, g, ?
-
-    get_create_variable(ncin, model, "PV")[:] = swap_axes_write(model, pv)
-
-
-def add_mod_pv(ncin, model, theta0, epsilon):
-    """
-    This function adds modified potential vorticity to the model.
-
-    See Mueller and Guenther: A generalized form of lait's modified potential vorticity
-    """
-    print("Adding MOD_PV...")
-    theta = get_theta(ncin, model)
-    pv = swap_axes_read(model, ncin.variables["PV"][:])
-    mod_pv = pv * ((theta / theta0) ** (-epsilon))
-
-    get_create_variable(ncin, model, "MOD_PV")[:] = swap_axes_write(model, mod_pv)
-
-
 def add_eqlat(ncin, model):
     print("Adding EQLAT...")
-    pv = swap_axes_read(model, ncin.variables["PV"][:])
-    theta = get_theta(ncin, model)
+    pv = ncin.variables["pv"][:]
+    theta = ncin.variables["pt"][:]
     eqlat = np.zeros(pv.shape)
 
     latc = ncin.variables["lat"][:]
@@ -708,82 +372,6 @@ def add_eqlat(ncin, model):
     get_create_variable(ncin, model, "EQLAT")[:] = swap_axes_write(model, eqlat)
 
 
-def add_divergence(ncin, model):
-    """
-    This function calculates isentropic PV and adds it as a variable to a model.
-    """
-    print("Adding divergence...")
-
-    def differentiate(f, dh, axis, coord=False):
-        """
-        if coord is set, dh is not the grid distance, but the coordinates themselves.
-        """
-        if axis != 3:
-            f = f.swapaxes(axis, 3)
-            if len(dh.shape) == 4:
-                dh = dh.swapaxes(axis, 3)
-
-        df = np.empty(f.shape)
-        df[..., 1:-1] = f[..., 2:] - f[..., :-2]
-        if len(dh.shape) == 0 or (len(dh.shape) == 4 and dh.shape[-1] == 1):
-            assert not coord
-            df[..., 1:-1] /= 2 * dh
-        else:
-            if coord:
-                df[..., 1:-1] /= dh[..., 2:] - dh[..., :-2]
-            else:
-                df[..., 1:-1] /= 2 * dh[..., 1:-1]
-        for i, i1, i2 in [(0, 1, 0), (-1, -1, -2)]:
-            if coord:
-                df[..., i] = (f[..., i1] - f[..., i2]) / (dh[..., i1] - dh[..., i2])
-            else:
-                if len(dh.shape) == 0:
-                    df[..., i] = (f[..., i1] - f[..., i2]) / dh
-                else:
-                    df[..., i] = (f[..., i1] - f[..., i2]) / dh[..., i]
-        if axis != 3:
-            df = df.swapaxes(axis, 3)
-        return df
-
-    rearth = 6.356766e6                  # Radius of the Earth (meters)
-
-    latc = ncin.variables["lat"][:]
-    lonc = ncin.variables["lon"][:]
-
-    u, v = [swap_axes_read(model, ncin.variables[_x][:]) for _x in ["U", "V"]]
-    press = get_pressure(ncin, model)
-    temp = get_temperature(ncin, model)
-
-    # Define finely spaced pressure grid to calculate potential vorticity.
-    # p_* variables are with respect to this pressure grid.
-    newshape = temp.shape
-
-    coslat = np.cos(np.deg2rad(latc))[np.newaxis, np.newaxis, :, np.newaxis]
-
-    dx = np.deg2rad(lonc[1] - lonc[0]) * rearth * coslat
-    dy = np.deg2rad(latc[1] - latc[0]) * rearth
-
-    # PV and vertical theta gradient in pressure
-
-    div = np.zeros(newshape)
-
-    dudx = differentiate(u, dx, 3)
-    dvdy = differentiate(v * coslat, dy * coslat, 2)
-    dpdx = differentiate(press, dx, 3)
-    dpdy = differentiate(press, dy, 2)
-
-    dvdp = differentiate(v, press, 1, coord=True)
-    dvdp[np.isnan(dvdp)] = 0
-    dudp = differentiate(u, press, 1, coord=True)
-    dudp[np.isnan(dudp)] = 0
-
-    div[:] = dudx - dpdx * dudp
-    div[:] += dvdy - dpdy * dvdp
-    div[:, :, abs(latc) == 90, :] = np.nan
-
-    get_create_variable(ncin, model, "DIVERGENCE")[:] = swap_axes_write(model, div)
-
-
 def add_surface(ncin, model, typ, levels):
     """
     This function takes PV and hor. Wind from a model and adds a variable where
@@ -794,15 +382,15 @@ def add_surface(ncin, model, typ, levels):
         return
     for p in [int(x) for x in levels.split(":")]:
         print("Adding PV, UV on", typ, "level", p)
-        pv = swap_axes_read(model, ncin.variables["PV"][:])
-        if typ == "PRESSURE":
-            vert = get_pressure(ncin, model)
-        elif typ == "THETA":
-            vert = get_theta(ncin, model)
+        pv = ncin.variables["pv"][:]
+        if typ == "pressure":
+            vert = ncin.variables["pressure"][:]/100
+        elif typ == "pt":
+            vert = ncin.variables["pt"][:]
         else:
-            vert = swap_axes_read(model, ncin.variables[typ][:])
-        u = swap_axes_read(model, ncin.variables["U"][:])
-        v = swap_axes_read(model, ncin.variables["V"][:])
+            vert = ncin.variables[typ][:]
+        u = ncin.variables["u"][:]
+        v = ncin.variables["v"][:]
         pv_surf = np.zeros((pv.shape[0], pv.shape[2], pv.shape[3]))
         uv_surf = np.zeros(pv_surf.shape)
         uv = np.sqrt(u ** 2 + v ** 2)
@@ -823,10 +411,8 @@ def add_surface(ncin, model, typ, levels):
                 [p], vert[iti, ::order, ila, ilo], pv[iti, ::order, ila, ilo],
                 left=np.nan, right=np.nan)
 
-        get_create_variable(ncin, model, "%s_SURFACE_%04d_UV" % (typ, p))[:] = \
-            swap_axes_hor(model, uv_surf)
-        get_create_variable(ncin, model, "%s_SURFACE_%04d_PV" % (typ, p))[:] = \
-            swap_axes_hor(model, pv_surf)
+        get_create_variable(ncin, model, "%s_SURFACE_%04d_UV" % (typ, p))[:] = uv_surf
+        get_create_variable(ncin, model, "%s_SURFACE_%04d_PV" % (typ, p))[:] = pv_surf
 
 
 def add_tropopauses(ncin, model):
@@ -835,10 +421,10 @@ def add_tropopauses(ncin, model):
     """
     print("Adding first and second tropopause")
 
-    temp = get_temperature(ncin, model)
-    press = np.log(get_pressure(ncin, model))
-    gph = get_gph(ncin, model)
-    theta = get_theta(ncin, model)
+    temp = ncin.variables["t"][:]
+    press = ncin.variables["pressure"][:]/100
+    gph = ncin.variables["zh"][:]
+    theta = ncin.variables["pt"][:]
 
     if gph[0, 1, 0, 0] < gph[0, 0, 0, 0]:
         gph = gph[:, ::-1, :, :]
@@ -879,140 +465,12 @@ def add_tropopauses(ncin, model):
     above_tropo1_press = np.exp(above_tropo1_press)
     above_tropo2_press = np.exp(above_tropo2_press)
 
-    get_create_variable(ncin, model, "TROPOPAUSE")[:] = swap_axes_hor(model, above_tropo1)
-    get_create_variable(ncin, model, "TROPOPAUSE_SECOND")[:] = swap_axes_hor(model, above_tropo2)
-    get_create_variable(ncin, model, "TROPOPAUSE_PRESSURE")[:] = swap_axes_hor(model, above_tropo1_press) * 100
-    get_create_variable(ncin, model, "TROPOPAUSE_SECOND_PRESSURE")[:] = swap_axes_hor(model, above_tropo2_press) * 100
-    get_create_variable(ncin, model, "TROPOPAUSE_THETA")[:] = swap_axes_hor(model, above_tropo1_theta)
-    get_create_variable(ncin, model, "TROPOPAUSE_SECOND_THETA")[:] = swap_axes_hor(model, above_tropo2_theta)
-
-
-def add_jetstream(press, u, v):
-    """
-    Adds alpha vel and deltavrel accoring to
-    Koch06 - AN EVENT-BASED JET-STREAM CLIMATOLOGY AND TYPOLOGY
-    """
-
-    alphavel = np.zeros((press.shape[0], press.shape[2], press.shape[3]))
-    deltavrel = np.zeros(alphavel.shape)
-
-    uv = np.sqrt(u ** 2 + v ** 2)
-
-    pmin, pmax = 100., 400.
-    for iti, ilo, ila in tqdm.tqdm(
-            itertools.product(range(press.shape[0]), range(press.shape[3]), range(press.shape[2])),
-            total=press.shape[0] * press.shape[3] * press.shape[2], ascii=True,
-            desc="Adding jetstream:"):
-        uv_border = np.interp(
-            [pmin, pmax, 200, 500], press[iti, :, ila, ilo], uv[iti, :, ila, ilo],
-            left=np.nan, right=np.nan)
-        press_idc = [k for k in range(press.shape[1])
-                     if pmin < press[iti, k, ila, ilo] < pmax]
-        press_prof = np.asarray(
-            [pmin] + press[iti, press_idc, ila, ilo] + [pmax])
-        uv_prof = np.asarray(
-            [uv_border[0]] + uv[iti, press_idc, ila, ilo] + [uv_border[1]])
-
-        alphavel[iti, ila, ilo] = np.trapz(uv_prof, x=press_prof) / (pmax - pmin)
-        deltavrel[iti, ila, ilo] = (uv_border[2] - uv_border[3]) / uv_border[2]
-
-    get_create_variable(ncin, model, "ALPHA_VEL")[:] = swap_axes_hor(model, alphavel)
-    get_create_variable(ncin, model, "DELTA_V_REL")[:] = swap_axes_hor(model, deltavrel)
-
-
-def add_temp_background(ncin, model):
-    """
-    Adds temperature background (wavenumbers 0-12). Fill value is -999.
-    """
-    if model in ["ECMWFZ", "MSSZ"]:
-        print("Adding temperature background")
-        print("detrending with zonal wavenumber 18.")
-        temp = get_temperature(ncin, model)
-        temp = np.ma.masked_invalid(temp)
-        mask = temp.mask.copy()
-        assert ncin.variables["height"].units in ["km", "m"]
-        scale = 1
-        if ncin.variables["height"].units == "m":
-            scale = 1000.
-        dalt = abs(ncin.variables["height"][1] - ncin.variables["height"][0]) / scale
-        npoints_alt = int(np.round(5.5 / dalt))
-        degree_alt = 4
-        while npoints_alt < (2 * degree_alt):
-            degree_alt -= 1
-        print("polynomial smoothing over height with {} points, {} degree.".format(
-            npoints_alt, degree_alt))
-        dlat = abs(ncin.variables["lat"][1] - ncin.variables["lat"][0])
-        npoints_lat = int(np.round(5.1 / dlat))
-        degree_lat = 4
-        while npoints_lat < (2 * degree_lat):
-            degree_lat -= 1
-        print("polynomial smoothing over latitude with {} points, {} degree.".format(
-            npoints_lat, degree_lat))
-        xlon = np.linspace(0, 360, temp.shape[3] + 1)[:-1]
-        alt = ncin.variables["height"][:][::-1] / scale
-        zminidx = len(alt) - 1
-        zmaxidx = 0
-        assert alt[zminidx] < alt[zmaxidx]
-        while alt[zminidx] < 2:
-            zminidx -= 1
-        while temp.mask[:, zmaxidx, :, :].sum() > 0:
-            zmaxidx += 1
-        print(zminidx, zmaxidx)
-        for it in range(temp.shape[0]):
-            for iz in tqdm.tqdm(range(zmaxidx, zminidx + 1), ascii=True):
-                if temp.mask[it, iz, :, :].sum() == 0:
-                    continue
-                for ilat in range(temp.shape[2]):
-                    sel = ~temp.mask[it, iz, ilat, :]
-                    sel = np.append(np.append(sel, sel), sel)
-                    temp_new = np.append(np.append(temp[it, iz, ilat, :], temp[it, iz, ilat, :]), temp[it, iz, ilat, :])
-                    xlon_new = np.append(np.append(xlon - 360., xlon), xlon + 360.)
-                    if sel.sum() > 0:
-                        f = interpolate.interp1d(xlon_new[sel], temp_new[sel])
-                        temp[it, iz, ilat, :] = f(xlon)
-                    else:
-                        temp[it, iz, ilat, :] = 0
-
-        temp_rfft = np.fft.rfft(temp[:, :, :, :], axis=3)
-        temp_rfft[:, :, :, 19:] = 0.
-        xlat = np.arange(temp_rfft.shape[2])
-        xalt = np.arange(temp_rfft.shape[1])
-        for it in range(temp_rfft.shape[0]):
-            for wn in tqdm.tqdm(range(19), desc="Smoothing wavenumbers", ascii=True):
-                for iz in range(zmaxidx, zminidx + 1):
-                    temp_rfft[it, iz, :, wn] = \
-                        smooth_polynomially(
-                            xlat, temp_rfft[it, iz, :, wn].real, npoints_lat, degree_lat) + \
-                        1j * smooth_polynomially(
-                            xlat, temp_rfft[it, iz, :, wn].imag, npoints_lat, degree_lat)
-                for iy in range(temp_rfft.shape[2]):
-                    temp_rfft[it, zmaxidx:zminidx + 1, iy, wn] = \
-                        smooth_polynomially(
-                            xalt, temp_rfft[it, zmaxidx:zminidx + 1, iy, wn].real, npoints_alt, degree_alt) + \
-                        1j * smooth_polynomially(
-                            xalt, temp_rfft[it, zmaxidx:zminidx + 1, iy, wn].imag, npoints_alt, degree_alt)
-        T_b = np.ones(temp.shape) * np.nan
-        T_b[:, :, :, :] = np.fft.irfft(temp_rfft, axis=3, n=temp.shape[3])
-        temp_rfft = np.ones((temp.shape[0], temp.shape[1], temp.shape[2], 19)) * np.nan
-        temp[mask] = np.nan
-        T_b[mask] = np.nan
-        T_b = np.ma.masked_invalid(T_b)
-        temp = np.ma.masked_invalid(temp)
-        get_create_variable(ncin, model, "T_BACKGROUND")[:] = swap_axes_write(model, T_b)
-        get_create_variable(ncin, model, "T_RESIDUAL")[:] = swap_axes_write(model, temp - T_b)
-
-
-def add_vertical_wind(ncin, model):
-    """
-    Adds vertical wind w. Fill value is -999.
-    """
-    if model == "ECMWFZ":
-        print("Adding vertical wind")
-        temp = get_temperature(ncin, model)
-        pres = get_pressure(ncin, model) * 100.
-        omega = swap_axes_read(model, ncin.variables["OMEGA"][:])
-        w = - (omega * 287.058 * temp) / (pres * 9.81)
-        get_create_variable(ncin, model, "W")[:] = swap_axes_write(model, w)
+    get_create_variable(ncin, model, "TROPOPAUSE")[:] = above_tropo1
+    get_create_variable(ncin, model, "TROPOPAUSE_SECOND")[:] = above_tropo2
+    get_create_variable(ncin, model, "TROPOPAUSE_PRESSURE")[:] = above_tropo1_press * 100
+    get_create_variable(ncin, model, "TROPOPAUSE_SECOND_PRESSURE")[:] = above_tropo2_press * 100
+    get_create_variable(ncin, model, "TROPOPAUSE_THETA")[:] = above_tropo1_theta
+    get_create_variable(ncin, model, "TROPOPAUSE_SECOND_THETA")[:] = above_tropo2_theta
 
 
 def add_metpy(option, filename):
@@ -1021,24 +479,24 @@ def add_metpy(option, filename):
     """
     with xr.load_dataset(filename) as xin:
         if option.theta or option.pv:
-            print("Adding THETA")
-            xin["THETA"] = potential_temperature(xin["PRESS"], xin["TEMP"])
-            xin["THETA"].data = np.array(xin["THETA"].data)
-            xin["THETA"].attrs["units"] = "K"
+            print("Adding potential temperature")
+            xin["pt"] = potential_temperature(xin["pressure"], xin["t"])
+            xin["pt"].data = np.array(xin["pt"].data)
+            xin["pt"].attrs["units"] = "K"
         if option.pv:
-            print("Adding PV")
+            print("Adding potential vorticity")
             xin = xin.metpy.assign_crs(grid_mapping_name='latitude_longitude',
                                        earth_radius=6.356766e6)
-            xin["PV"] = potential_vorticity_baroclinic(xin["THETA"], xin["PRESS"], xin["U"], xin["V"])
-            xin["PV"].data = np.array(xin["PV"].data)
+            xin["pv"] = potential_vorticity_baroclinic(xin["pt"], xin["pressure"], xin["u"], xin["v"])
+            xin["pv"].data = np.array(xin["pv"].data * 10 ** 6)
             xin = xin.drop("metpy_crs")
-            xin["PV"].attrs["units"] = "kelvin * meter ** 2 / kilogram / second"
-            xin["MOD_PV"] = xin["PV"] * ((xin["THETA"] / 360) ** (-4.5))
+            xin["pv"].attrs["units"] = "kelvin * meter ** 2 / kilogram / second"
+            xin["mod_pv"] = xin["pv"] * ((xin["pt"] / 360) ** (-4.5))
         if option.n2:
             print("Adding N2")
-            xin["N2"] = brunt_vaisala_frequency_squared(geopotential_to_height(xin["GPH"]), xin["THETA"])
-            xin["N2"].data = np.array(xin["N2"].data)
-            xin["N2"].attrs["units"] = "1 / s ** 2"
+            xin["n2"] = brunt_vaisala_frequency_squared(geopotential_to_height(xin["zh"]), xin["pt"])
+            xin["n2"].data = np.array(xin["n2"].data)
+            xin["n2"].attrs["units"] = "1 / s ** 2"
         xin.to_netcdf(filename)
 
 
@@ -1058,21 +516,14 @@ def add_rest(option, model, filename):
         if option.eqlat:
             add_eqlat(ncin, model)
 
-        add_surface(ncin, model, "PRESSURE", option.surface_pressure)
-        add_surface(ncin, model, "THETA", option.surface_theta)
+        add_surface(ncin, model, "pressure", option.surface_pressure)
+        add_surface(ncin, model, "t", option.surface_theta)
 
         if option.tropopause:
             add_tropopauses(ncin, model)
 
-        if option.jetstream:
-            add_jetstream(ncin, model)
-
-        if option.temp_background:
-            add_temp_background(ncin, model)
-
 
 def main():
-    #add_metpy(None, "/home/mayb/Desktop/MSS/github_data-retrieval/mss-data-retrieval/mss/2020-09-01T12:00:00.an.ml.nc")
     option, model, filename = parse_args(sys.argv[1:])
     add_metpy(option, filename)
     add_rest(option, model, filename)
