@@ -4,85 +4,17 @@ Author(s): Joern Ungermann
 
 Please see docstring of main().
 """
-#metpy?
-from __future__ import print_function
-
 import datetime
 import itertools
 import optparse
 import os
 import sys
-from metpy.calc import *
-from metpy.units import units
-from metpy.calc import thickness_hydrostatic
-from metpy.constants import earth_gravity, dry_air_gas_constant
+from metpy.calc import potential_temperature, potential_vorticity_baroclinic, brunt_vaisala_frequency_squared, geopotential_to_height
 import xarray as xr
 
 import netCDF4
 import numpy as np
-from scipy import interpolate
 import tqdm
-
-# Default arguments for creating NetCDF variables
-NETCDF4_PARAMS = {
-    "zlib": 1, "shuffle": 1, "fletcher32": 1, "fill_value": np.nan}
-
-# Handle variables which are differently named in varying models here
-NAMES = {
-    "WACCM": {"TEMP": "T",
-              "GPH": ("Z3", 1000.)},
-    "MSSZ": {"TEMP": "TEMP",
-             "GPH": ("GPH", 1)},
-    "MSSL": {"TEMP": "TEMP",
-             "GPH": ("GPH", 9.81 * 1000)},
-    "MSSP": {"TEMP": "TEMP",
-             "GPH": ("GPH", 9.81 * 1000)},
-    "MSST": {"TEMP": "TEMP",
-             "GPH": ("GPH", 9.81 * 1000)},
-    "GWFC": {"TEMP": "TEMP",
-             "GPH": ("GPH", 1000.)},
-    "FNL": {"TEMP": "TEMP",
-            "GPH": ("GPH", 1000.)},
-    "MACC": {"TEMP": "temp",
-             "GPH": ("GPH", 1000.)},
-    "ECMWFP": {"TEMP": "TEMP",
-               "GPH": ("GPH", 9.81 * 1000.)},
-    "ECMWFZ": {"TEMP": "TEMP",
-               "GPH": ("GPH", 9.81 * 1000.)},
-    "ECMWFT": {"TEMP": "TEMP",
-               "GPH": ("GPH", 9.81 * 1000.)},
-    "ECMWFH": {"TEMP": "TEMP",
-               "GPH": ("GPH", 9.81 * 1000.)},
-}
-
-# Enter suitable dimensions for different models here
-DIMS = {
-    "WACCM": {"FULL": ("time", "lev", "lat", "lon"),
-              "HORIZONTAL": ("time", "lat", "lon")},
-    "MSSZ": {"FULL": ("time", "height", "lat", "lon"),
-             "HORIZONTAL": ("time", "lat", "lon")},
-    "MSSL": {"FULL": ("time", "level", "lat", "lon"),
-             "HORIZONTAL": ("time", "lat", "lon")},
-    "MSSP": {"FULL": ("time", "pressure", "lat", "lon"),
-             "HORIZONTAL": ("time", "lat", "lon")},
-    "MSST": {"FULL": ("time", "theta", "lat", "lon"),
-             "HORIZONTAL": ("time", "lat", "lon")},
-    "GWFC": {"FULL": ("time", "altitude", "latitude", "longitude"),
-             "HORIZONTAL": ("time", "latitude", "longitude")},
-    "FNL": {"FULL": ("time", "press", "lat", "lon"),
-            "HORIZONTAL": ("time", "lat", "lon")},
-    "MACC": {"FULL": ("time", "lev", "lat", "lon"),
-             "HORIZONTAL": ("time", "lat", "lon")},
-    "ECMWFP": {"FULL": ("time", "lon", "lat", "press"),
-               "HORIZONTAL": ("time", "lon", "lat")},
-    "ECMWFH": {"FULL": ("time", "lon", "lat", "hybrid"),
-               "HORIZONTAL": ("time", "lon", "lat")},
-    "ECMWFT": {"FULL": ("time", "lon", "lat", "theta"),
-               "HORIZONTAL": ("time", "lon", "lat")},
-    "ECMWFZ": {"FULL": ("time", "lon", "lat", "height"),
-               "HORIZONTAL": ("time", "lon", "lat")},
-}
-assert NAMES.keys() == DIMS.keys()
 
 VARIABLES = {
     "pressure": ("FULL", "hPa", "air_pressure", "Pressure"),
@@ -94,7 +26,7 @@ VARIABLES = {
     "w": ("FULL", "m/s", "upward_air_velocity", "Vertical Wind Velocity"),
     "n2": ("FULL", "s^-2", "square_of_brunt_vaisala_frequency_in_air", "N^2"),
     "SURFACE_UV": ("HORIZONTAL", "m s^-1", "", "Horizontal Wind Speed at "),
-    "SURFACE_PV": ("HORIZONTAL", "m^2 K s^-1 kg^-1 10E-6", "", "Potential Vorticity at "),
+    "SURFACE_PV": ("HORIZONTAL", "m^2 K s^-1 kg^-1", "", "Potential Vorticity at "),
     "TROPOPAUSE": ("HORIZONTAL", "km", "tropopause_altitude",
                    "vertical location of first WMO thermal tropopause"),
     "TROPOPAUSE_PRESSURE": ("HORIZONTAL", "Pa", "tropopause_air_pressure",
@@ -110,11 +42,12 @@ VARIABLES = {
 }
 
 
-def get_create_variable(ncin, model, name):
+def get_create_variable(ncin, name):
     """
     Either retrieves a variable from NetCDF or creates it,
     in case it is not yet present.
     """
+    is_surface = False
     if name not in ncin.variables:
         if name in VARIABLES:
             dim, units, standard_name, long_name = VARIABLES[name]
@@ -123,8 +56,10 @@ def get_create_variable(ncin, model, name):
             assert fields[1] == "SURFACE"
             dim, units, long_name = VARIABLES["_".join(fields[1:4:2])]
             long_name += fields[2]
-        var_id = ncin.createVariable(name, "f4", DIMS[model][dim],
-                                     **NETCDF4_PARAMS)
+            is_surface = True
+        dims = ("time", "lev_2", "lat", "lon") if not is_surface else ("time", "lat", "lon")
+        var_id = ncin.createVariable(name, "f4", dims,
+                                     **{"zlib": 1, "shuffle": 1, "fletcher32": 1, "fill_value": np.nan})
         var_id.units = units
         var_id.long_name = long_name
         if standard_name:
@@ -233,20 +168,16 @@ def parse_args(args):
                     help="Add PV and UV on given theta surfaces, e.g., 200:300:400.")
     opt, arg = oppa.parse_args(args)
 
-    if len(arg) != 2:
+    if len(arg) != 1:
         print(oppa.get_usage())
         exit(1)
-    if arg[0] not in NAMES:
-        print("Unsupported model type:", arg[0])
-        print("Supported types are", list(NAMES.keys()))
-        exit(1)
-    if not os.path.exists(arg[1]):
+    if not os.path.exists(arg[0]):
         print("Cannot find model data at", arg[1])
         exit(1)
-    return opt, arg[0], arg[1]
+    return opt, arg[0]
 
 
-def add_eqlat(ncin, model):
+def add_eqlat(ncin):
     print("Adding EQLAT...")
     pv = ncin.variables["pv"][:]
     theta = ncin.variables["pt"][:]
@@ -276,41 +207,35 @@ def add_eqlat(ncin, model):
         latc = latc[::-1]
     assert(baseareas[1] > baseareas[0])
 
-    if model not in ["MSST"]:
-        thetagrid = np.hstack([np.arange(250., 400., 2),
-                               np.arange(400., 500., 5.),
-                               np.arange(500., 750., 10.),
-                               np.arange(750., 1000., 25.),
-                               np.arange(1000., 3000., 100.)])
-        log_thetagrid = np.log(thetagrid)
+    thetagrid = np.hstack([np.arange(250., 400., 2),
+                           np.arange(400., 500., 5.),
+                           np.arange(500., 750., 10.),
+                           np.arange(750., 1000., 25.),
+                           np.arange(1000., 3000., 100.)])
+    log_thetagrid = np.log(thetagrid)
 
-        newshape = list(pv.shape)
-        newshape[1] = len(thetagrid)
+    newshape = list(pv.shape)
+    newshape[1] = len(thetagrid)
 
-        p_theta = np.zeros(newshape)
-        p_theta.swapaxes(1, 3)[:] = thetagrid
+    p_theta = np.zeros(newshape)
+    p_theta.swapaxes(1, 3)[:] = thetagrid
 
-        # convert u, v, theta to pressure grid
-        theta_pv = np.zeros(newshape)
-        lp = np.log(theta[0, :, 0, 0])
-        reverse = False
-        if lp[0] > lp[-1]:
-            theta = theta[:, ::-1]
-            pv = pv[:, ::-1]
-            reverse = True
-        for iti, ilo, ila in tqdm.tqdm(
-                itertools.product(range(newshape[0]), range(newshape[3]), range(newshape[2])),
-                total=newshape[0] * newshape[3] * newshape[2], ascii=True,
-                desc="Interpolation to theta levels:"):
-            lp = np.log(theta[iti, :, ila, ilo])
-            theta_pv[iti, :, ila, ilo] = np.interp(
-                log_thetagrid, lp, pv[iti, :, ila, ilo],
-                left=np.nan, right=np.nan)
-        print()
-    else:
-        theta_pv = pv
-        newshape = list(pv.shape)
-        thetagrid = theta[0, :, 0, 0]
+    # convert u, v, theta to pressure grid
+    theta_pv = np.zeros(newshape)
+    lp = np.log(theta[0, :, 0, 0])
+    reverse = False
+    if lp[0] > lp[-1]:
+        theta = theta[:, ::-1]
+        pv = pv[:, ::-1]
+        reverse = True
+    for iti, ilo, ila in tqdm.tqdm(
+            itertools.product(range(newshape[0]), range(newshape[3]), range(newshape[2])),
+            total=newshape[0] * newshape[3] * newshape[2], ascii=True,
+            desc="Interpolation to theta levels:"):
+        lp = np.log(theta[iti, :, ila, ilo])
+        theta_pv[iti, :, ila, ilo] = np.interp(
+            log_thetagrid, lp, pv[iti, :, ila, ilo],
+            left=np.nan, right=np.nan)
 
     theta_eqlat = np.zeros(newshape)
     for iti in range(newshape[0]):
@@ -352,27 +277,22 @@ def add_eqlat(ncin, model):
                 print("\nWARNING")
                 print("    Filling one level to NaN due to missing PV values")
                 theta_eqlat[iti, lev, :, :] = np.nan
-    print()
 
-    if model not in ["MSST"]:
-        # convert pv back to model grid
-        for iti, ilo, ila in tqdm.tqdm(
-                itertools.product(range(eqlat.shape[0]), range(eqlat.shape[3]), range(eqlat.shape[2])),
-                total=eqlat.shape[0] * eqlat.shape[3] * eqlat.shape[2], ascii=True,
-                desc="Interpolation back to model levels:"):
-            lp = np.log(theta[iti, :, ila, ilo])
-            eqlat[iti, :, ila, ilo] = np.interp(
-                lp, log_thetagrid, theta_eqlat[iti, :, ila, ilo],
-                left=np.nan, right=np.nan)
-        if reverse:
-            eqlat = eqlat[:, ::-1]
-        print()
-    else:
-        eqlat = theta_eqlat
-    get_create_variable(ncin, model, "EQLAT")[:] = swap_axes_write(model, eqlat)
+    # convert pv back to model grid
+    for iti, ilo, ila in tqdm.tqdm(
+            itertools.product(range(eqlat.shape[0]), range(eqlat.shape[3]), range(eqlat.shape[2])),
+            total=eqlat.shape[0] * eqlat.shape[3] * eqlat.shape[2], ascii=True,
+            desc="Interpolation back to model levels:"):
+        lp = np.log(theta[iti, :, ila, ilo])
+        eqlat[iti, :, ila, ilo] = np.interp(
+            lp, log_thetagrid, theta_eqlat[iti, :, ila, ilo],
+            left=np.nan, right=np.nan)
+    if reverse:
+        eqlat = eqlat[:, ::-1]
+    get_create_variable(ncin, "EQLAT")[:] = eqlat
 
 
-def add_surface(ncin, model, typ, levels):
+def add_surface(ncin, typ, levels):
     """
     This function takes PV and hor. Wind from a model and adds a variable where
     these entities are interpolated on the given horizontal hPa planes.
@@ -411,11 +331,11 @@ def add_surface(ncin, model, typ, levels):
                 [p], vert[iti, ::order, ila, ilo], pv[iti, ::order, ila, ilo],
                 left=np.nan, right=np.nan)
 
-        get_create_variable(ncin, model, "%s_SURFACE_%04d_UV" % (typ, p))[:] = uv_surf
-        get_create_variable(ncin, model, "%s_SURFACE_%04d_PV" % (typ, p))[:] = pv_surf
+        get_create_variable(ncin, "%s_SURFACE_%04d_UV" % (typ, p))[:] = uv_surf
+        get_create_variable(ncin, "%s_SURFACE_%04d_PV" % (typ, p))[:] = pv_surf
 
 
-def add_tropopauses(ncin, model):
+def add_tropopauses(ncin):
     """
     Adds first and second thermal WMO tropopause to model. Fill value is -999.
     """
@@ -465,12 +385,12 @@ def add_tropopauses(ncin, model):
     above_tropo1_press = np.exp(above_tropo1_press)
     above_tropo2_press = np.exp(above_tropo2_press)
 
-    get_create_variable(ncin, model, "TROPOPAUSE")[:] = above_tropo1
-    get_create_variable(ncin, model, "TROPOPAUSE_SECOND")[:] = above_tropo2
-    get_create_variable(ncin, model, "TROPOPAUSE_PRESSURE")[:] = above_tropo1_press * 100
-    get_create_variable(ncin, model, "TROPOPAUSE_SECOND_PRESSURE")[:] = above_tropo2_press * 100
-    get_create_variable(ncin, model, "TROPOPAUSE_THETA")[:] = above_tropo1_theta
-    get_create_variable(ncin, model, "TROPOPAUSE_SECOND_THETA")[:] = above_tropo2_theta
+    get_create_variable(ncin, "TROPOPAUSE")[:] = above_tropo1
+    get_create_variable(ncin, "TROPOPAUSE_SECOND")[:] = above_tropo2
+    get_create_variable(ncin, "TROPOPAUSE_PRESSURE")[:] = above_tropo1_press * 100
+    get_create_variable(ncin, "TROPOPAUSE_SECOND_PRESSURE")[:] = above_tropo2_press * 100
+    get_create_variable(ncin, "TROPOPAUSE_THETA")[:] = above_tropo1_theta
+    get_create_variable(ncin, "TROPOPAUSE_SECOND_THETA")[:] = above_tropo2_theta
 
 
 def add_metpy(option, filename):
@@ -504,7 +424,7 @@ def add_metpy(option, filename):
         xin.to_netcdf(filename)
 
 
-def add_rest(option, model, filename):
+def add_rest(option, filename):
     """
     Adds the variables not possible through metpy
     """
@@ -518,19 +438,19 @@ def add_rest(option, model, filename):
         ncin.date_modified = datetime.datetime.now().isoformat()
 
         if option.eqlat:
-            add_eqlat(ncin, model)
+            add_eqlat(ncin)
 
-        add_surface(ncin, model, "pressure", option.surface_pressure)
-        add_surface(ncin, model, "pt", option.surface_theta)
+        add_surface(ncin, "pressure", option.surface_pressure)
+        add_surface(ncin, "pt", option.surface_theta)
 
         if option.tropopause:
-            add_tropopauses(ncin, model)
+            add_tropopauses(ncin)
 
 
 def main():
-    option, model, filename = parse_args(sys.argv[1:])
+    option, filename = parse_args(sys.argv[1:])
     add_metpy(option, filename)
-    add_rest(option, model, filename)
+    add_rest(option, filename)
 
 
 if __name__ == "__main__":

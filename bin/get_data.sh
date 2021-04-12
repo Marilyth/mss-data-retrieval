@@ -76,7 +76,7 @@ ncatted -a units,time,o,c,"${time_units}" $mlfile
 bin/add_pressure_gph.sh input=$mlfile pressure_units=Pa gph_units="m^2s^-2"
 
 # Add ancillary information
-python bin/add_ancillary.py MSSL $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
+python bin/add_ancillary.py $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
 
 # separate sfc from ml variables
 ncks -7 -L 4 -C -O -x -vlev_2,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d $mlfile $sfcfile
