@@ -479,13 +479,13 @@ def add_metpy(option, filename):
     """
     with xr.load_dataset(filename) as xin:
         if option.theta or option.pv:
-            print("Adding potential temperature")
+            print("Adding potential temperature...")
             xin["pt"] = potential_temperature(xin["pressure"], xin["t"])
             xin["pt"].data = np.array(xin["pt"].data)
             xin["pt"].attrs["units"] = "K"
             xin["pt"].attrs["standard_name"] = VARIABLES["pt"][2]
         if option.pv:
-            print("Adding potential vorticity")
+            print("Adding potential vorticity...")
             xin = xin.metpy.assign_crs(grid_mapping_name='latitude_longitude',
                                        earth_radius=6.356766e6)
             xin["pv"] = potential_vorticity_baroclinic(xin["pt"], xin["pressure"], xin["u"], xin["v"])
@@ -496,7 +496,7 @@ def add_metpy(option, filename):
             xin["mod_pv"] = xin["pv"] * ((xin["pt"] / 360) ** (-4.5))
             xin["mod_pv"].attrs["standard_name"] = VARIABLES["mod_pv"][2]
         if option.n2:
-            print("Adding N2")
+            print("Adding N2...")
             xin["n2"] = brunt_vaisala_frequency_squared(geopotential_to_height(xin["zh"]), xin["pt"])
             xin["n2"].data = np.array(xin["n2"].data)
             xin["n2"].attrs["units"] = VARIABLES["n2"][1]

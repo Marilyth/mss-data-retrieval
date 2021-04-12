@@ -11,18 +11,19 @@ def interpolate_vertical(ml_file, inter_file, to_interpolate, new_vertical_axis)
     """
     with xr.load_dataset(inter_file) as interpolated:
         with xr.open_dataset(ml_file) as ml:
-            x = np.array(ml[new_vertical_axis].data)
-            y = np.array(ml[to_interpolate].data)
-            interpolated_data = interpolate_1d(interpolated["lev"].data, x, y, axis=1)
-            attributes = ml[to_interpolate].attrs
+            for variable in to_interpolate:
+                x = np.array(ml[new_vertical_axis].data)
+                y = np.array(ml[variable].data)
+                interpolated_data = interpolate_1d(interpolated["lev"].data, x, y, axis=1)
+                attributes = ml[variable].attrs
 
-        interpolated[to_interpolate] = interpolated["q"].copy(data=interpolated_data)
-        interpolated[to_interpolate].attrs = attributes
-        interpolated.to_netcdf(inter_file)
+                interpolated[variable] = interpolated["q"].copy(data=interpolated_data)
+                interpolated[variable].attrs = ml[variable].attrs
+                interpolated.to_netcdf(inter_file)
 
 
 ml = sys.argv[1]
 inter_file = sys.argv[2]
-to_interpolate = sys.argv[3]
+to_interpolate = sys.argv[3].split(",")
 vertical_axis = sys.argv[4]
 interpolate_vertical(ml, inter_file, to_interpolate, vertical_axis)
