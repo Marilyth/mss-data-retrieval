@@ -483,6 +483,7 @@ def add_metpy(option, filename):
             xin["pt"] = potential_temperature(xin["pressure"], xin["t"])
             xin["pt"].data = np.array(xin["pt"].data)
             xin["pt"].attrs["units"] = "K"
+            xin["pt"].attrs["standard_name"] = VARIABLES["pt"][2]
         if option.pv:
             print("Adding potential vorticity")
             xin = xin.metpy.assign_crs(grid_mapping_name='latitude_longitude',
@@ -491,12 +492,15 @@ def add_metpy(option, filename):
             xin["pv"].data = np.array(xin["pv"].data * 10 ** 6)
             xin = xin.drop("metpy_crs")
             xin["pv"].attrs["units"] = "kelvin * meter ** 2 / kilogram / second"
+            xin["pv"].attrs["standard_name"] = VARIABLES["pv"][2]
             xin["mod_pv"] = xin["pv"] * ((xin["pt"] / 360) ** (-4.5))
+            xin["mod_pv"].attrs["standard_name"] = VARIABLES["mod_pv"][2]
         if option.n2:
             print("Adding N2")
             xin["n2"] = brunt_vaisala_frequency_squared(geopotential_to_height(xin["zh"]), xin["pt"])
             xin["n2"].data = np.array(xin["n2"].data)
-            xin["n2"].attrs["units"] = "1 / s ** 2"
+            xin["n2"].attrs["units"] = VARIABLES["n2"][1]
+            xin["n2"].attrs["standard_name"] = "square_of_brunt_vaisala_frequency_in_air"
         xin.to_netcdf(filename)
 
 
@@ -517,7 +521,7 @@ def add_rest(option, model, filename):
             add_eqlat(ncin, model)
 
         add_surface(ncin, model, "pressure", option.surface_pressure)
-        add_surface(ncin, model, "t", option.surface_theta)
+        add_surface(ncin, model, "pt", option.surface_theta)
 
         if option.tropopause:
             add_tropopauses(ncin, model)

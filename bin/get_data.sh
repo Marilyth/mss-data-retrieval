@@ -83,15 +83,18 @@ then
 fi
 export time_units="hours since ${init_date}"
 
-# convert grib to netCDF
-#python $GRIB2NCDF ${GRIB} --output $mlfile --time-units "$time_units" --pressure-units Pa --gph-units "m^2s^-2" --level-type level --format NETCDF3_64BIT_OFFSET
-$GRIB2NCDF input=${GRIB} output=$mlfile time_units="$time_units" pressure_units=Pa gph_units="m^2s^-2" level_type=level
+# convert grib to netCDF, set init time
 cdo -f nc4 copy grib/${BASE}.tl.grib $tlfile
 ncatted -a units,time,o,c,"${time_units}" $tlfile
 cdo -f nc4 copy grib/${BASE}.pv.grib $pvfile
 ncatted -a units,time,o,c,"${time_units}" $pvfile
+cdo -f nc4 copy ${GRIB} $mlfile
+ncatted -a units,time,o,c,"${time_units}" $mlfile
 
-# Add ancillay information
+# Add pressure and geopotential height to mlfile
+$GRIB2NCDF input=$mlfile output=$mlfile pressure_units=Pa gph_units="m^2s^-2"
+
+# Add ancillary information
 python $ADDPV MSSL $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
 
 # separate sfc from ml variables
@@ -130,6 +133,7 @@ ncks -C -O -x -v lev,sp,lnsp $alfile $alfile
 mv $alfile ${MSS}/EUR_LL015.an.al.nc
 rm $tmpfile
 
+# model/surface levels
 ncks -6 -O -d lev_2,0,0 -d lev_2,16,28,4 -d lev_2,32,124,2 $mlfile $tmpfile
 rm $mlfile
 nccopy -7 -s -d7 $tmpfile $mlfile
