@@ -5,7 +5,7 @@ Scripts to get and process ERA5 data for MSS on Linux
 1. Create an account at https://cds.climate.copernicus.eu/user/register \
 Log into your account
 2. Navigate to https://cds.climate.copernicus.eu/api-how-to#install-the-cds-api-key \
-Copy the content of the black box to the right and paste it into ~/.cdsapirc
+Copy the content of the upper black box to the right and paste it into `~/.cdsapirc`
 5. Accept https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
 
 # Scripts Setup
