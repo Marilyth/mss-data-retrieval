@@ -21,7 +21,7 @@ def ml():
         'param': [129.128, 130.128, 131.128, 132.128, 133.128, 135.128, 152.128, 155.128, 203.128, 246.128, 247.128, 248.128],
         'stream': 'oper',
         'type': 'an',
-        "area": "90/0/-90/360",
+        "area": "0/0/-80/360",
         "grid": "1.0/1.0",
     }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.ml.grib')
 
@@ -36,7 +36,7 @@ def pl():
         'param': 'all',
         'stream': 'oper',
         'type': 'an',
-        "area": "90/0/-90/360",
+        "area": "0/0/-80/360",
         "grid": "1.0/1.0",
     }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.pl.grib')
 
@@ -51,7 +51,7 @@ def pv():
         'param': 'all',
         'stream': 'oper',
         'type': 'an',
-        "area": "90/0/-90/360",
+        "area": "0/0/-80/360",
         "grid": "1.0/1.0",
     }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.pv.grib')
 
@@ -66,7 +66,7 @@ def tl():
         'param': 'all',
         'stream': 'oper',
         'type': 'an',
-        "area": "90/0/-90/360",
+        "area": "0/0/-80/360",
         "grid": "1.0/1.0",
     }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.tl.grib')
 
@@ -80,7 +80,7 @@ def sfc():
         'param': ["151.128", "165.128", "166.128", "186.128", "187.128", "188.128"],
         'stream': 'oper',
         'type': 'an',
-        "area": "90/0/-90/360",
+        "area": "0/0/-80/360",
         "grid": "1.0/1.0",
     }, f'grib/{sys.argv[1]}T{sys.argv[2]}.an.sfc.grib')
 
