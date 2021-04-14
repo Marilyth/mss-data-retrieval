@@ -23,7 +23,6 @@ VARIABLES = {
     "mod_pv": ("FULL", "m^2 K s^-1 kg^-1 10E-6", "", "Modified Potential Vorticity"),
     "EQLAT": ("FULL", "degree N", "equivalent_latitude", "Equivalent Latitude"),
     "zh": ("FULL", "km", "geopotential_height", "Geopotential Altitude"),
-    "w": ("FULL", "m/s", "upward_air_velocity", "Vertical Wind Velocity"),
     "n2": ("FULL", "s^-2", "square_of_brunt_vaisala_frequency_in_air", "N^2"),
     "SURFACE_UV": ("HORIZONTAL", "m s^-1", "", "Horizontal Wind Speed at "),
     "SURFACE_PV": ("HORIZONTAL", "m^2 K s^-1 kg^-1", "", "Potential Vorticity at "),
@@ -421,6 +420,7 @@ def add_metpy(option, filename):
             xin["n2"].data = np.array(xin["n2"].data)
             xin["n2"].attrs["units"] = VARIABLES["n2"][1]
             xin["n2"].attrs["standard_name"] = "square_of_brunt_vaisala_frequency_in_air"
+
         xin.to_netcdf(filename)
 
 

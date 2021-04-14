@@ -88,21 +88,27 @@ mv $tmpfile $mlfile
 echo "Creating pressure level file..."
 cdo ml2pl,85000,50000,40000,30000,20000,15000,12000,10000,8000,6500,5000,4000,3000,2000,1000,500,100 $mlfile $plfile
 ncatted -O -a standard_name,plev,o,c,atmosphere_pressure_coordinate $plfile
+ncap2 -s "plev/=100;plev@units=\"hPa\"" $plfile $plfile-tmp
+mv $plfile-tmp $plfile
 ncks -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $plfile $plfile
 
 echo "Creating potential temperature level file..."
 python bin/interpolate_missing_variables.py $mlfile $tlfile zh,n2,t pt
 ncatted -O -a standard_name,lev,o,c,atmosphere_potential_temperature_coordinate $tlfile
+ncatted -O -a standard_name,pv,o,c,ertel_potential_vorticity $tlfile
 
 echo "Creating potential vorticity level file..."
 python bin/interpolate_missing_variables.py $mlfile $pvfile zh,n2,t pv
 ncatted -O -a standard_name,lev,o,c,atmosphere_ertel_potential_vorticity_coordinate $pvfile
+ncatted -O -a standard_name,pt,o,c,air_potential_temperature $plfile
 ncatted -O -a units,lev,o,c,"kelvin * meter ** 2 / kilogram / second" $pvfile
 
 echo "Creating altitude level file..."
 ncks -6 -C -O -vtime,lev_2,lon,lat,n2,u,t,pressure,zh,w,v,pt,pv,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
 cdo ml2hl,$gph_levels $tmpfile $alfile
 ncatted -O -a standard_name,height,o,c,atmosphere_altitude_coordinate $alfile
+ncap2 -s "height@units=\"km\";height=height/1000" $alfile $alfile-tmp
+mv $alfile-tmp $alfile
 ncks -C -O -x -v lev,sp,lnsp $alfile $alfile
 rm $tmpfile
 
