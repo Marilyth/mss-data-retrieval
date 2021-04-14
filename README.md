@@ -30,7 +30,7 @@ sudo apt-get install cdo nco
 ```
 
 # Usage
-After completing both setups, you can use this script as follows:
+1. After completing both setups, you can use this script as follows:
 ```
 ./bin/get_data.sh <date> <time>
 ```
@@ -38,4 +38,9 @@ For example, to get ERA5 data for March 2nd 2020 at 12 o'clock, use
 ```
 ./bin/get_data.sh 2020-03-02 12:00:00
 ```
-Done, copy the .nc files to your mss data directory.
+2. Done, copy the .nc files to your mss data directory and give them their appropriate suffix.\
+Using the demodata for MSS, this is ~/mss/testdata and EUR_LL015 suffix. 
+```
+for file in *.nc; do mv "$file" "${file/.nc/.EUR_LL015.nc}"; done
+mv ./mss/*.nc ~/mss/testdata
+```
