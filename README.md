@@ -23,6 +23,11 @@ chmod +x ./bin/add_pressure_gph.sh
 ```
 pip -r install requirements.txt
 ```
+4. Make sure cdo and nco are installed\
+   e.g. for Ubuntu/Debian
+```
+sudo apt-get install cdo nco
+```
 
 # Usage
 After completing both setups, you can use this script as follows:
