@@ -26,7 +26,7 @@ pip -r install requirements.txt
 4. Make sure cdo and nco are installed\
    e.g. for Ubuntu/Debian
 ```
-sudo apt-get install cdo nco
+sudo apt-get install cdo nco netcdf-bin
 ```
 
 # Usage
