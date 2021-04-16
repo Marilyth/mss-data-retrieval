@@ -18,6 +18,7 @@ pip --user -r install requirements.txt
 4. Create a .bashrc for paths
 ```
 cat .bashrc > ~/.bashrc
+source ~/.bashrc
 ```
 
 # Usage
@@ -25,7 +26,7 @@ cat .bashrc > ~/.bashrc
 ```
 ./bin/get_data.sh <date> <time>
 ```
-For example, to get ERA5 data for March 2nd 2020 at 12 o'clock, use
+For example, to get data for March 2nd 2020 at 12 o'clock, use
 ```
 ./bin/get_data.sh 2020-03-02 12:00:00
 ```
