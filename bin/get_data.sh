@@ -28,40 +28,8 @@ then
 fi
 export time_units="hours since ${init_date}"
 
-# Download ml, sfc, pv and pt files
-echo "Downloading files, this might take a long time!"
-if [ ! -f grib/${BASE}.ml.grib ]; then
-    echo test
-    python bin/download_an_all.py $DATE $TIME ml &
-fi
-if [ ! -f grib/${BASE}.sfc.grib ]; then
-    python bin/download_an_all.py $DATE $TIME sfc &
-fi
-if [ ! -f grib/${BASE}.pv.grib ]; then
-    python bin/download_an_all.py $DATE $TIME pv &
-fi
-if [ ! -f grib/${BASE}.tl.grib ]; then
-    python bin/download_an_all.py $DATE $TIME tl &
-fi
-wait
-
-if [ ! -f grib/${BASE}.ml.grib ]; then
-   echo	FATAL `date` Model level file is missing
-   exit
-fi
-if [ ! -f grib/${BASE}.sfc.grib ]; then
-   echo	FATAL `date` Surface file is missing
-   exit
-fi
-if [ ! -f grib/${BASE}.pv.grib ]; then
-   echo	FATAL `date` Potential Vorticity level file is missing
-   exit
-fi
-if [ ! -f grib/${BASE}.tl.grib ]; then
-   echo	FATAL `date` Potential Temperature level file is missing
-   exit
-fi
-
+# Retrieve ml, sfc, pv and pt files
+./bin/download_an_all.sh $DATE $TIME
 cat grib/${BASE}.ml.grib grib/${BASE}.sfc.grib > ${GRIB}
 
 # convert grib to netCDF, set init time
@@ -72,16 +40,20 @@ ncatted -a units,time,o,c,"${time_units}" $pvfile
 cdo -f nc4 copy ${GRIB} $mlfile
 ncatted -a units,time,o,c,"${time_units}" $mlfile
 
+# Change weird cdo names
+ncrename -h -O -v .var3,pt -v .var54,pres -v .var129,z -v .var131,u -v .var132,v -v .var133,q -v .var203,o3 $pvfile
+ncrename -h -O -v .var54,pres -v .var60,pv -v .var131,u -v .var132,v -v .var133,q -v .var155,d -v .var203,o3 $tlfile
+
 # Add pressure and geopotential height to model levels file
-bin/add_pressure_gph.sh input=$mlfile pressure_units=Pa gph_units="m^2s^-2"
+./bin/add_pressure_gph.sh input=$mlfile pressure_units=Pa gph_units="m^2s^-2"
 
 # Add ancillary information
-python bin/add_ancillary.py $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
+python3 ./bin/add_ancillary.py $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
 
 # separate sfc from ml variables
-ncks -7 -L 4 -C -O -x -vlev_2,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d $mlfile $sfcfile
+ncks -L 4 -C -O -x -vlev_2,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d $mlfile $sfcfile
 ncatted -O -a standard_name,msl,o,c,air_pressure_at_sea_level $sfcfile
-ncks -6 -C -O -vtime,lev_2,lon,lat,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d,hyai,hyam,hybi,hybm,sp,lnsp $mlfile $tmpfile
+ncks -C -O -vtime,lev_2,lon,lat,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d,hyai,hyam,hybi,hybm,sp,lnsp $mlfile $tmpfile
 mv $tmpfile $mlfile
 
 # interpolate to different grids
@@ -93,18 +65,18 @@ mv $plfile-tmp $plfile
 ncks -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $plfile $plfile
 
 echo "Creating potential temperature level file..."
-python bin/interpolate_missing_variables.py $mlfile $tlfile zh,n2,t pt
+python3 ./bin/interpolate_missing_variables.py $mlfile $tlfile zh,n2,t pt
 ncatted -O -a standard_name,lev,o,c,atmosphere_potential_temperature_coordinate $tlfile
 ncatted -O -a standard_name,pv,o,c,ertel_potential_vorticity $tlfile
 
 echo "Creating potential vorticity level file..."
-python bin/interpolate_missing_variables.py $mlfile $pvfile zh,n2,t pv
+python3 ./bin/interpolate_missing_variables.py $mlfile $pvfile zh,n2,t pv
 ncatted -O -a standard_name,lev,o,c,atmosphere_ertel_potential_vorticity_coordinate $pvfile
 ncatted -O -a standard_name,pt,o,c,air_potential_temperature $plfile
 ncatted -O -a units,lev,o,c,"kelvin * meter ** 2 / kilogram / second" $pvfile
 
 echo "Creating altitude level file..."
-ncks -6 -C -O -vtime,lev_2,lon,lat,n2,u,t,pressure,zh,w,v,pt,pv,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
+ncks -C -O -vtime,lev_2,lon,lat,n2,u,t,pressure,zh,w,v,pt,pv,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
 cdo ml2hl,$gph_levels $tmpfile $alfile
 ncatted -O -a standard_name,height,o,c,atmosphere_altitude_coordinate $alfile
 ncap2 -s "height@units=\"km\";height=height/1000" $alfile $alfile-tmp

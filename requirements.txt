@@ -1,4 +1,3 @@
-cdsapi
 MetPy
 tqdm
 xarray
