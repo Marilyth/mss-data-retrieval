@@ -16,8 +16,7 @@ cd mss-data-retrieval
 ```
 2. Make the shell scripts executable
 ```
-chmod +x ./bin/get_data.sh
-chmod +x ./bin/add_pressure_gph.sh
+chmod +x ./bin/*.sh
 ```
 3. Install all requirements
 ```
