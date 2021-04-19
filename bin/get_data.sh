@@ -93,3 +93,13 @@ ncatted -O -a standard_name,lev_2,o,c,atmosphere_hybrid_sigma_pressure_coordinat
 ncks -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $mlfile $mlfile
 
 echo "Done, your netcdf files are located at $(pwd)/mss"
+
+if ecaccess-association-list | grep -q 'MSS-Data-Transfer'; then
+  echo "Transfering files to MSS-Data-Transfer"
+  ectrans -remote MSS-Data-Transfer -source $mlfile &
+  ectrans -remote MSS-Data-Transfer -source $tlfile &
+  ectrans -remote MSS-Data-Transfer -source $plfile &
+  ectrans -remote MSS-Data-Transfer -source $pvfile &
+  ectrans -remote MSS-Data-Transfer -source $sfcfile
+  wait
+fi
