@@ -62,7 +62,7 @@ if [ ! -f grib/${BASE}.tl.grib ]; then
    exit
 fi
 
-#cat grib/${BASE}.ml.grib grib/${BASE}.sfc.grib > ${GRIB}
+cat grib/${BASE}.ml.grib grib/${BASE}.sfc.grib > ${GRIB}
 
 # convert grib to netCDF, set init time
 cdo -f nc4c copy grib/${BASE}.tl.grib $tlfile
