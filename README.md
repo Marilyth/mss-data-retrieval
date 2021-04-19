@@ -16,8 +16,7 @@ cd mss-data-retrieval
 ```
 2. Make the shell scripts executable
 ```
-chmod +x ./bin/get_data.sh
-chmod +x ./bin/add_pressure_gph.sh
+chmod +x ./bin/*.sh
 ```
 3. Install all requirements
 ```
@@ -26,7 +25,7 @@ pip -r install requirements.txt
 4. Make sure cdo and nco are installed\
    e.g. for Ubuntu/Debian
 ```
-sudo apt-get install cdo nco
+sudo apt-get install cdo nco netcdf-bin
 ```
 
 # Usage
