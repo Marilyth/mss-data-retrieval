@@ -11,7 +11,7 @@ export WORK="$(dirname $0)/.."
 cd $WORK
 export DATE=$1
 export TIME=$2
-export BASE=${DATE}T${TIME}.an
+export BASE=${DATE}T${TIME}.fc
 export GRIB=grib/${BASE}.grib
 export mlfile=mss/${BASE}.ml.nc
 export plfile=mss/${BASE}.pl.nc
@@ -51,9 +51,9 @@ ncrename -h -O -v .var54,pres -v .var60,pv -v .var131,u -v .var132,v -v .var133,
 python3 ./bin/add_ancillary.py $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
 
 # separate sfc from ml variables
-ncks -L 4 -C -O -x -vlev_2,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d $mlfile $sfcfile
+ncks -L 4 -C -O -x -vlev,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d $mlfile $sfcfile
 ncatted -O -a standard_name,msl,o,c,air_pressure_at_sea_level $sfcfile
-ncks -C -O -vtime,lev_2,lon,lat,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d,hyai,hyam,hybi,hybm,sp,lnsp $mlfile $tmpfile
+ncks -C -O -vtime,lev,lon,lat,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d,hyai,hyam,hybi,hybm,sp,lnsp $mlfile $tmpfile
 mv $tmpfile $mlfile
 
 # interpolate to different grids
@@ -76,7 +76,7 @@ ncatted -O -a standard_name,pt,o,c,air_potential_temperature $plfile
 ncatted -O -a units,lev,o,c,"kelvin * meter ** 2 / kilogram / second" $pvfile
 
 echo "Creating altitude level file..."
-ncks -C -O -vtime,lev_2,lon,lat,n2,u,t,pressure,zh,w,v,pt,pv,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
+ncks -C -O -vtime,lev,lon,lat,n2,u,t,pressure,zh,w,v,pt,pv,hyai,hyam,hybi,hybm,lnsp $mlfile $tmpfile
 cdo ml2hl,$gph_levels $tmpfile $alfile
 ncatted -O -a standard_name,height,o,c,atmosphere_altitude_coordinate $alfile
 ncap2 -s "height@units=\"km\";height=height/1000" $alfile $alfile-tmp
@@ -85,11 +85,11 @@ ncks -C -O -x -v lev,sp,lnsp $alfile $alfile
 rm $tmpfile
 
 # model/surface levels
-ncks -6 -O -d lev_2,0,0 -d lev_2,16,28,4 -d lev_2,32,124,2 $mlfile $tmpfile
+ncks -6 -O -d lev,0,0 -d lev,16,28,4 -d lev,32,124,2 $mlfile $tmpfile
 rm $mlfile
 nccopy -7 -s -d7 $tmpfile $mlfile
 rm $tmpfile
-ncatted -O -a standard_name,lev_2,o,c,atmosphere_hybrid_sigma_pressure_coordinate $mlfile
+ncatted -O -a standard_name,lev,o,c,atmosphere_hybrid_sigma_pressure_coordinate $mlfile
 ncks -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $mlfile $mlfile
 
 echo "Done, your netcdf files are located at $(pwd)/mss"

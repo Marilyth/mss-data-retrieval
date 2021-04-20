@@ -17,7 +17,7 @@ def interpolate_vertical(ml_file, inter_file, to_interpolate, new_vertical_axis)
                 interpolated_data = interpolate_1d(interpolated["lev"].data, x, y, axis=1)
                 attributes = ml[variable].attrs
 
-                interpolated[variable] = interpolated["q"].copy(data=interpolated_data)
+                interpolated[variable] = interpolated["pres"].copy(data=interpolated_data)
                 interpolated[variable].attrs = ml[variable].attrs
                 interpolated.to_netcdf(inter_file)
 
