@@ -29,22 +29,26 @@ fi
 export time_units="hours since ${init_date}"
 
 # Retrieve ml, sfc, pv and pt files
-#./bin/download_an_all.sh $DATE $TIME
-cat grib/${BASE}.ml.grib grib/${BASE}.sfc.grib > ${GRIB}
+./bin/download_an_all.sh $DATE $TIME
 
 # convert grib to netCDF, set init time
 cdo -f nc4c copy grib/${BASE}.tl.grib $tlfile
 ncatted -a units,time,o,c,"${time_units}" $tlfile
 cdo -f nc4c copy grib/${BASE}.pv.grib $pvfile
 ncatted -a units,time,o,c,"${time_units}" $pvfile
-cdo -f nc4c copy ${GRIB} $mlfile
+cdo -f nc4c copy grib/${BASE}.ml.grib $mlfile
 ncatted -a units,time,o,c,"${time_units}" $mlfile
+cdo -f nc4c copy grib/${BASE}.sfc.grib $sfcfile
+ncatted -a units,time,o,c,"${time_units}" $sfcfile
+
+cdo merge $sfcfile $mlfile $tmpfile
+mv $tmpfile $mlfile
 
 # Change weird cdo names
 ncrename -h -O -v .var3,pt -v .var54,pres -v .var129,z -v .var131,u -v .var132,v -v .var133,q -v .var203,o3 $pvfile
 ncrename -h -O -v .var54,pres -v .var60,pv -v .var131,u -v .var132,v -v .var133,q -v .var155,d -v .var203,o3 $tlfile
+ncrename -h -O -v .var129,z -v .var151,msl -v .var165,10u -v .var166,10v -v .var186,lcc -v .var187,mcc -v .var188,hcc $mlfile
 
-# Rename standard names
 ncatted -O -a standard_name,msl,o,c,air_pressure_at_sea_level $sfcfile
 
 # Add pressure and geopotential height to model levels file
@@ -69,14 +73,14 @@ ncks -7 -L 7 -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $plfile $plfi
 
 echo "Creating potential temperature level file..."
 python3 ./bin/interpolate_missing_variables.py $mlfile $tlfile pt
-python bin/rename_standard.py $mlfile $tlfile
+python3 bin/rename_standard.py $mlfile $tlfile
 ncatted -O -a standard_name,lev,o,c,atmosphere_potential_temperature_coordinate $tlfile
 ncatted -O -a standard_name,pv,o,c,ertel_potential_vorticity $tlfile
 ncks -O -7 -L 7 $tlfile $tlfile
 
 echo "Creating potential vorticity level file..."
 python3 ./bin/interpolate_missing_variables.py $mlfile $pvfile pv
-python bin/rename_standard.py $mlfile $pvfile
+python3 bin/rename_standard.py $mlfile $pvfile
 ncatted -O -a standard_name,lev,o,c,atmosphere_ertel_potential_vorticity_coordinate $pvfile
 ncatted -O -a units,lev,o,c,"kelvin * meter ** 2 / kilogram / second" $pvfile
 ncks -O -7 -L 7 $pvfile $pvfile
