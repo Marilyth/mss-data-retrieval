@@ -27,7 +27,7 @@ source ~/.bashrc
 ```
 ./bin/get_data.sh <date> <time> <step>
 ```
-Where <date> and <time> is the date and time where the forecast was created, and <step> is how many hours after the date and time you want your data.\
+Where \<date\> and \<time\> is the date and time where the forecast was created, and \<step\> is how many hours after the date and time you want your data.\
 For example, to get a forecast created at 22nd of April 2021 at 0 o'clock, for 23rd and 24th of April at 0 o'clock, use
 ```
 ./bin/get_data.sh 2021-04-22 00:00:00 24/48
