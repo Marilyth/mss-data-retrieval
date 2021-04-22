@@ -6,6 +6,7 @@ Scripts to get and process data for MSS on ecGates
 ```
 git clone https://github.com/Marilyth/mss-data-retrieval.git
 cd mss-data-retrieval
+git checkout ecgate-forecast
 ```
 2. Make the shell scripts executable
 ```
@@ -24,9 +25,10 @@ source ~/.bashrc
 # Usage
 1. After completing both setups, you can use this script as follows:
 ```
-./bin/get_data.sh <date> <time>
+./bin/get_data.sh <date> <time> <step>
 ```
-For example, to get data for March 2nd 2020 at 12 o'clock, use
+Where <date> and <time> is the date and time where the forecast was created, and <step> is how many hours after the date and time you want your data.
+For example, to get a forecast created at 22nd of April 2021 at 0 o'clock, for 23rd and 24th of April at 0 o'clock, use
 ```
-./bin/get_data.sh 2020-03-02 12:00:00
+./bin/get_data.sh 2021-04-22 00:00:00 24/48
 ```
