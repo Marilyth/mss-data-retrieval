@@ -79,7 +79,7 @@ bin/add_pressure_gph.sh input=$mlfile pressure_units=Pa gph_units="m^2s^-2"
 python bin/add_ancillary.py $mlfile --pv --theta --tropopause --n2 #--eqlat nan values cause issues for now due to no 180° coverage
 
 # separate sfc from ml variables
-ncks -L 7 -C -O -x -vlev_2,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d $mlfile $sfcfile
+ncks -7 -L 7 -C -O -x -vlev_2,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d $mlfile $sfcfile
 ncatted -O -a standard_name,msl,o,c,air_pressure_at_sea_level $sfcfile
 ncks -C -O -vtime,lev_2,lon,lat,n2,clwc,u,q,t,pressure,zh,cc,w,v,ciwc,pt,pv,mod_pv,o3,d,hyai,hyam,hybi,hybm,sp,lnsp $mlfile $tmpfile
 mv $tmpfile $mlfile
@@ -93,13 +93,15 @@ mv $plfile-tmp $plfile
 ncks -7 -L 7 -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $plfile $plfile
 
 echo "Creating potential temperature level file..."
-python bin/interpolate_missing_variables.py $mlfile $tlfile zh,n2,t pt
+python bin/interpolate_missing_variables.py $mlfile $tlfile pt
+python bin/rename_standard.py $mlfile $tlfile
 ncatted -O -a standard_name,lev,o,c,atmosphere_potential_temperature_coordinate $tlfile
 ncatted -O -a standard_name,pv,o,c,ertel_potential_vorticity $tlfile
 ncks -O -7 -L 7 $tlfile $tlfile
 
 echo "Creating potential vorticity level file..."
-python bin/interpolate_missing_variables.py $mlfile $pvfile zh,n2,t pv
+python bin/interpolate_missing_variables.py $mlfile $pvfile pv
+python bin/rename_standard.py $mlfile $pvfile
 ncatted -O -a standard_name,lev,o,c,atmosphere_ertel_potential_vorticity_coordinate $pvfile
 ncatted -O -a standard_name,pt,o,c,air_potential_temperature $plfile
 ncatted -O -a units,lev,o,c,"kelvin * meter ** 2 / kilogram / second" $pvfile
@@ -111,7 +113,7 @@ cdo ml2hl,$gph_levels $tmpfile $alfile
 ncatted -O -a standard_name,height,o,c,atmosphere_altitude_coordinate $alfile
 ncap2 -s "height@units=\"km\";height=height/1000" $alfile $alfile-tmp
 mv $alfile-tmp $alfile
-ncks -L 7 -C -O -x -v lev,sp,lnsp $alfile $alfile
+ncks -7 -L 7 -C -O -x -v lev,sp,lnsp $alfile $alfile
 rm $tmpfile
 
 # model/surface levels
@@ -120,6 +122,6 @@ rm $mlfile
 nccopy -s -d7 $tmpfile $mlfile
 rm $tmpfile
 ncatted -O -a standard_name,lev_2,o,c,atmosphere_hybrid_sigma_pressure_coordinate $mlfile
-ncks -L 7 -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $mlfile $mlfile
+ncks -7 -L 7 -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $mlfile $mlfile
 
 echo "Done, your netcdf files are located at $(pwd)/mss"
