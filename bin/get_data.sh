@@ -11,6 +11,7 @@ export WORK="$(dirname $0)/.."
 cd $WORK
 export DATE=$1
 export TIME=$2
+export STEP=$3
 export BASE=${DATE}T${TIME}.fc
 export GRIB=grib/${BASE}.grib
 export mlfile=mss/${BASE}.ml.nc
@@ -29,7 +30,7 @@ fi
 export time_units="hours since ${init_date}"
 
 # Retrieve ml, sfc, pv and pt files
-./bin/download_an_all.sh $DATE $TIME
+./bin/download_an_all.sh $DATE $TIME $STEP
 
 # convert grib to netCDF, set init time
 cdo -f nc4c copy grib/${BASE}.tl.grib $tlfile
