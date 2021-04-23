@@ -1,6 +1,12 @@
 # mss-data-retrieval
 Scripts to get and process data for MSS on ecGates
 
+# ECTrans Setup
+1. Login at https://ecaccess.ecmwf.int/ecmwf/ \
+   Go to https://ecaccess.ecmwf.int/ecmwf/gateway/ECtrans/Setup
+2. Click "Add association" at the bottom of the page \
+Call the association "MSS-Data-Transfer" and set up your SFTP/FTP Server to your liking
+
 # Scripts Setup
 1. Clone this repository and move into it
 ```
