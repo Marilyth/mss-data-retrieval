@@ -101,7 +101,7 @@ rm $mlfile
 nccopy -s -d7 $tmpfile $mlfile
 rm $tmpfile
 ncatted -O -a standard_name,lev,o,c,atmosphere_hybrid_sigma_pressure_coordinate $mlfile
-ncks -7 -L 7 -C -O -x -v lev,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $mlfile $mlfile
+ncks -7 -L 7 -C -O -x -v lev_2,sp,lnsp,nhyi,nhym,hyai,hyam,hybi,hybm $mlfile $mlfile
 
 echo "Done, your netcdf files are located at $(pwd)/mss"
 
